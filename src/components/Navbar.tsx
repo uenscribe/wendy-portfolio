@@ -38,15 +38,15 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
       {/* Desktop Right Fixed Vertical Navigation Bar */}
       <nav
         id="right-fixed-navbar"
-        className="hidden md:flex fixed right-0 top-12 bottom-0 w-20 bg-black text-white border-l-2 border-black z-40 flex-col items-center justify-between py-6 select-none"
+        className="hidden md:flex fixed right-0 top-0 bottom-0 w-28 bg-black text-white border-l-2 border-black z-50 flex-col items-center justify-between py-6 select-none"
       >
         <div className="flex flex-col items-center justify-center border-b border-white/10 w-full pb-4 gap-2.5">
           <button
             onClick={() => setActiveTab('home')}
-            className="w-8 h-8 border border-white flex items-center justify-center bg-neutral-900 hover:bg-neutral-800 transition-colors cursor-pointer animate-pulse text-white rounded-xs"
+            className="w-8 h-8 border border-white flex items-center justify-center bg-neutral-900 hover:bg-neutral-800 transition-colors cursor-pointer text-white rounded-xs"
             title="Return to Homepage"
           >
-            <Home className="w-4 h-4" />
+            <span className="font-serif text-sm font-black tracking-tighter">W</span>
           </button>
           
           {/* Top-aligned language switch module */}
@@ -71,7 +71,7 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
         </div>
 
         {/* Horizontal text layout listings for right navigation labels as requested */}
-        <div className="flex-1 flex flex-col justify-center items-center gap-4 py-4 w-full overflow-y-auto">
+        <div className="flex-1 flex flex-col justify-start items-center gap-8 py-10 w-full overflow-y-auto">
           {customNavItems.map(item => {
             const IconComponent = IconMap[item.iconName] || Home;
             const isActive = activeTab === item.id;

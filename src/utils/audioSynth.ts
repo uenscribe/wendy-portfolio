@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { audioDB } from './audioStorage';
+
 // Web Audio API Ambient Synthesizer to generate procedural music
 class AudioSynthManager {
   private ctx: AudioContext | null = null;
@@ -28,16 +30,21 @@ class AudioSynthManager {
     }
   }
 
-  public play(trackId: string, customUrl?: string) {
+  public async play(trackId: string, customUrl?: string) {
     this.stop();
     this.initCtx();
     this.trackId = trackId;
     this.currentStep = 0;
 
-    if (customUrl) {
+    let urlToPlay = customUrl;
+    if (!urlToPlay && trackId.startsWith('track-custom-')) {
+      urlToPlay = await audioDB.getTrackData(trackId) || undefined;
+    }
+
+    if (urlToPlay) {
       this.isPlaying = true;
       try {
-        this.audioEl = new Audio(customUrl);
+        this.audioEl = new Audio(urlToPlay);
         this.audioEl.loop = true;
         this.audioEl.play().catch(err => {
           console.warn('Audio playback is blocked by browser gesture lock. Waiting on user gesture...', err);

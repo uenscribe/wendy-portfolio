@@ -32,9 +32,66 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
   const [formDate, setFormDate] = useState('');
   const [formNote, setFormNote] = useState('');
   const [formCoverColor, setFormCoverColor] = useState('#262626');
+  const [formCoverImage, setFormCoverImage] = useState('');
   const [formCmsStatus, setFormCmsStatus] = useState<CMSStatus>('Published');
   const [formVisibility, setFormVisibility] = useState<CMSVisibility>('Public');
   const [formPinned, setFormPinned] = useState(false);
+
+  // Drag-and-drop state on cards
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+
+  // Directly handle drag and drop uploading for library items
+  const handleDragOver = (e: React.DragEvent, itemId: string) => {
+    e.preventDefault();
+    setDragOverItemId(itemId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverItemId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, itemId: string) => {
+    e.preventDefault();
+    setDragOverItemId(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        if (base64) {
+          const updated = items.map(item => {
+            if (item.id === itemId) {
+              return { ...item, coverImage: base64 };
+            }
+            return item;
+          });
+          onSaveItems?.(updated);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCardImageChange = (e: React.ChangeEvent<HTMLInputElement>, itemId: string) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        if (base64) {
+          const updated = items.map(item => {
+            if (item.id === itemId) {
+              return { ...item, coverImage: base64 };
+            }
+            return item;
+          });
+          onSaveItems?.(updated);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Filter based on roles, types, search terms
   const filteredItems = items.filter(item => {
@@ -52,6 +109,13 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
       const isPrivateStatus = item.visibility === 'Private';
       return !isDraftStatus && !isPrivateStatus;
     }
+  });
+
+  // Sort library items so pinned items always float to the top
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    const aPinned = a.pinned ? 1 : 0;
+    const bPinned = b.pinned ? 1 : 0;
+    return bPinned - aPinned;
   });
 
   const t = UI_TRANSLATIONS[lang];
@@ -89,6 +153,7 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
     setFormDate(item.date);
     setFormNote(item.note || '');
     setFormCoverColor(item.coverColor || '#262626');
+    setFormCoverImage(item.coverImage || '');
     setFormCmsStatus(item.status_cms || 'Published');
     setFormVisibility(item.visibility || 'Public');
     setFormPinned(item.pinned || false);
@@ -105,6 +170,7 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
     setFormDate(new Date().toISOString().split('T')[0]);
     setFormNote('');
     setFormCoverColor('#171717');
+    setFormCoverImage('');
     setFormCmsStatus('Published');
     setFormVisibility('Public');
     setFormPinned(false);
@@ -134,6 +200,7 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
         date: formDate,
         note: formNote || undefined,
         coverColor: formCoverColor,
+        coverImage: formCoverImage || undefined,
         status_cms: formCmsStatus,
         visibility: formVisibility,
         pinned: formPinned
@@ -154,6 +221,7 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
             date: formDate,
             note: formNote || undefined,
             coverColor: formCoverColor,
+            coverImage: formCoverImage || undefined,
             status_cms: formCmsStatus,
             visibility: formVisibility,
             pinned: formPinned
@@ -234,7 +302,7 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
 
       {/* Index card Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredItems.map(item => {
+        {sortedItems.map(item => {
           const isBook = item.type === 'book';
           const isMovie = item.type === 'movie';
           const Icon = isBook ? Book : isMovie ? Film : Music;
@@ -243,15 +311,40 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
             <div
               key={item.id}
               id={`library-item-${item.id}`}
-              className="group border border-black bg-white flex flex-col justify-between p-5 relative shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[5px_5px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200"
+              onDragOver={(e) => handleDragOver(e, item.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, item.id)}
+              className="group border border-black bg-white flex flex-col justify-between p-5 relative shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[5px_5px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
             >
+              {/* Cover image at 40% opacity */}
+              {item.coverImage && (
+                <div 
+                  className="absolute inset-0 w-full h-full pointer-events-none z-0"
+                  style={{
+                    backgroundImage: `url(${item.coverImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    opacity: 0.40
+                  }}
+                />
+              )}
+
+              {/* Drag over overlay visual indicator */}
+              {dragOverItemId === item.id && (
+                <div className="absolute inset-0 bg-stone-100/80 backdrop-blur-xs flex flex-col items-center justify-center border-2 border-dashed border-black z-30 pointer-events-none select-none">
+                  <span className="font-mono text-[10px] font-black text-black uppercase tracking-widest bg-white p-2 border border-black shadow">
+                    📥 {lang === 'en' ? 'DROP IMAGE COVER' : '释放鼠标应用封面图'}
+                  </span>
+                </div>
+              )}
+
               {/* Decorative cover band simulation badge on the right side */}
               <div
-                className="absolute top-0 right-0 w-3 h-full border-l border-black"
+                className="absolute top-0 right-0 w-3 h-full border-l border-black z-10"
                 style={{ backgroundColor: item.coverColor || '#171717' }}
               />
 
-              <div className="space-y-4 pr-4">
+              <div className="space-y-4 pr-4 relative z-10">
                 {/* Header info */}
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-mono text-[9px] text-neutral-500 font-extrabold uppercase tracking-wider">
@@ -311,18 +404,40 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
 
                 {/* Review note in typography style */}
                 {item.note && (
-                  <p className="font-serif text-xs text-neutral-700 leading-relaxed pt-2 border-t border-dashed border-neutral-100 italic">
+                  <p className="font-serif text-xs text-neutral-700 leading-relaxed pt-2 border-t border-dashed border-neutral-200 italic">
                     “ {item.note} ”
                   </p>
                 )}
               </div>
 
               {/* Footer Date log and Admin Inline Editing on hover/view */}
-              <div className="pt-3 flex justify-between items-center font-mono text-[9px] text-neutral-400 mt-4 border-t border-dashed border-neutral-200 pr-4">
-                <span>{lang === 'en' ? 'LOG_DATE' : '归档日期'} : {item.date}</span>
+              <div className="pt-3 flex justify-between items-center font-mono text-[9px] text-neutral-400 mt-4 border-t border-dashed border-neutral-200 pr-4 relative z-10">
+                <span className="flex flex-col gap-0.5">
+                  <span>{lang === 'en' ? 'LOG_DATE' : '归档日期'} : {item.date}</span>
+                  {!item.coverImage && isAdminLoggedIn && (
+                    <span className="text-[7.5px] text-stone-400 tracking-tighter uppercase">{lang === 'en' ? 'Drag cover image here' : '可直接拖拽图片到此卡片'}</span>
+                  )}
+                </span>
                 
                 {isAdminLoggedIn ? (
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 items-center">
+                    {/* Add local upload input trigger */}
+                    <label
+                      htmlFor={`upload-cover-${item.id}`}
+                      className="p-1 bg-white border border-black hover:bg-neutral-100 rounded text-black transition-all cursor-pointer flex items-center justify-center h-5.5 w-6"
+                      title={lang === 'en' ? 'Upload local image as cover' : '本地上传封面图片'}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="text-[10px]">📷</span>
+                      <input
+                        type="file"
+                        id={`upload-cover-${item.id}`}
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleCardImageChange(e, item.id)}
+                      />
+                    </label>
+
                     <button
                       onClick={(e) => handleOpenEdit(e, item)}
                       className="p-1 bg-white border border-black hover:bg-neutral-50 rounded text-black transition-all cursor-pointer"
@@ -460,6 +575,60 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
                     placeholder="e.g. #000000"
                     className="w-full border border-black p-1.5 h-8 text-[11px] font-mono focus:bg-neutral-50 outline-none"
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-neutral-400 text-[10px] uppercase font-bold block mb-1">
+                  Cover Image (封面图 - 拖拽或本地上传, 透明度40%)
+                </label>
+                <div className="border border-black p-2 flex items-center gap-3 bg-neutral-50 min-h-12 relative">
+                  {formCoverImage ? (
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2">
+                        <img 
+                          src={formCoverImage} 
+                          alt="preview" 
+                          className="w-10 h-10 object-cover border border-black" 
+                        />
+                        <span className="text-[10px] text-green-700 font-bold uppercase">Image Loaded (✓ 已载入图片)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormCoverImage('')}
+                        className="px-1.5 py-0.5 border border-red-500 hover:bg-red-50 text-red-500 font-extrabold font-mono text-[9px] uppercase tracking-wide cursor-pointer"
+                      >
+                        [Delete / 移除]
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1 w-full text-center py-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="form-cover-upload"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file && file.type.startsWith('image/')) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const base64 = event.target?.result as string;
+                              if (base64) setFormCoverImage(base64);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="form-cover-upload"
+                        className="inline-block mx-auto px-3 py-1 cursor-pointer bg-white border border-black hover:bg-neutral-100 font-bold text-[10px] uppercase font-mono shadow-[1px_1px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none"
+                      >
+                        Choose Image Cover (选取封面图 File)
+                      </label>
+                      <span className="text-[8px] text-neutral-400">Supports .jpg, .png or .webp base64 conversions</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

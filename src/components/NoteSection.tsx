@@ -82,6 +82,13 @@ export default function NoteSection({
     }
   });
 
+  // Sort notes so that those pinned (pinned === true) always float to the top
+  const sortedNotes = [...filteredNotes].sort((a, b) => {
+    const aPinned = a.pinned ? 1 : 0;
+    const bPinned = b.pinned ? 1 : 0;
+    return bPinned - aPinned;
+  });
+
   // Open editor helpers
   const handleOpenEdit = (e: React.MouseEvent, note: Note) => {
     e.stopPropagation();
@@ -223,7 +230,7 @@ export default function NoteSection({
 
       {/* Clean Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredNotes.map((note) => (
+        {sortedNotes.map((note) => (
           <div
             key={note.id}
             id={`note-card-${note.id}`}

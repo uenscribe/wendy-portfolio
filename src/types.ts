@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type WorkCategory = 'Storytelling' | 'Campaigns' | 'Design & Creation' | 'Growth & Community' | 'About';
+export type WorkCategory = 'All' | 'Storytelling' | 'Campaigns' | 'Design & Creation' | 'Growth & Community' | 'About';
 
 export type CMSStatus = 'Published' | 'Draft' | 'Archived';
 export type CMSVisibility = 'Public' | 'Private';
@@ -67,6 +67,7 @@ export interface LibraryItem {
   note?: string; // Insights / personal review
   note_zh?: string; // bilingual support
   coverColor?: string; // Styled editorial cover background
+  coverImage?: string; // Base64 or image URL
   status_cms?: CMSStatus; // supporting CMS drafts
   visibility?: CMSVisibility;
   pinned?: boolean;

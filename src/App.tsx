@@ -11,6 +11,7 @@ import { UI_TRANSLATIONS, translateProject, translateNote, translateLibraryItem 
 import InteractiveBg from './components/InteractiveBg';
 import Playlist from './components/Playlist';
 import Logo from './components/Logo';
+import { audioDB } from './utils/audioStorage';
 import Navbar from './components/Navbar';
 import WorksSection from './components/WorksSection';
 import NoteSection from './components/NoteSection';
@@ -190,6 +191,12 @@ export default function App() {
   const [avatarHoverLeft, setAvatarHoverLeft] = useState(() => localStorage.getItem('logo_avatar_hover_left') || 'W. LU AVATAR');
   const [avatarHoverRight, setAvatarHoverRight] = useState(() => localStorage.getItem('logo_avatar_hover_right') || 'COORD // GZ');
   const [draggableTimelineId, setDraggableTimelineId] = useState<string | null>(null);
+  const [isPortraitLightboxOpen, setIsPortraitLightboxOpen] = useState(false);
+
+  // Background customizable states
+  const [homeModule1Bg, setHomeModule1Bg] = useState(() => localStorage.getItem('home_module1_bg_b64') || '');
+  const [homeModule2Bg, setHomeModule2Bg] = useState(() => localStorage.getItem('home_module2_bg_b64') || '');
+  const [globalPageBg, setGlobalPageBg] = useState(() => localStorage.getItem('global_page_bg_b64') || '');
 
   // Default nav items
   const DEFAULT_NAV_ITEMS = [
@@ -248,6 +255,10 @@ export default function App() {
   // Floating FAB & Quick Capture Panel States
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [activeQuickForm, setActiveQuickForm] = useState<'project' | 'note' | 'library' | 'timeline' | 'profile' | null>(null);
+  const [isBrandEditorOpen, setIsBrandEditorOpen] = useState(false);
+  const [brandNameInput, setBrandNameInput] = useState(() => localStorage.getItem('brand_name') || 'WENDY LU');
+  const [hoverLeftInput, setHoverLeftInput] = useState(() => localStorage.getItem('logo_avatar_hover_left') || 'W. LU AVATAR');
+  const [hoverRightInput, setHoverRightInput] = useState(() => localStorage.getItem('logo_avatar_hover_right') || 'COORD // GZ');
 
   // Unified editing entity item state (if we edit via general manager instead of inline)
   const [editingTimelineItem, setEditingTimelineItem] = useState<TimelineEntry | null>(null);
@@ -330,12 +341,23 @@ export default function App() {
     e.preventDefault();
     if (!contactName.trim() || !contactEmail.trim()) return;
     setIsSent(true);
+
+    const subject = `Message Inquiry from ${contactName}`;
+    const body = `${contactMessage}\n\nSender Name: ${contactName}\nSender Email: ${contactEmail}`;
+    const mailtoUrl = `mailto:wanyinglu3847@foxmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
     setTimeout(() => {
       setIsSent(false);
       setContactName('');
       setContactEmail('');
       setContactMessage('');
-      alert(lang === 'en' ? 'Communication securely indexed. Thank you.' : '信息接收成功，底物理层信件已安全入编归档库。');
+      
+      // Redirect to mailto link
+      window.location.href = mailtoUrl;
+
+      alert(lang === 'en' 
+        ? 'Communication launched! Opening your local email client with wanyinglu3847@foxmail.com...' 
+        : '加密信件打包成功！正在调度您的本地电子邮箱客户端，投递传送至 wanyinglu3847@foxmail.com...');
     }, 1500);
   };
 
@@ -724,6 +746,23 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  const handleBgImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (b64: string) => void,
+    storageKey: string
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string || '';
+      setter(result);
+      localStorage.setItem(storageKey, result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleResetToDefaults = () => {
     if (!confirm(lang === 'en' ? '⚠️ WARNING: Purge all local draft database items and revert to stock assets?' : '⚠️ 严重警告：确认清空所有网页端已经发布编辑的数据，并重置回初始自带默认状态？')) return;
     localStorage.clear();
@@ -833,6 +872,9 @@ export default function App() {
 
     localStorage.setItem('logo_avatar_hover_left', avatarHoverLeft);
     localStorage.setItem('logo_avatar_hover_right', avatarHoverRight);
+    localStorage.setItem('home_module1_bg_b64', homeModule1Bg);
+    localStorage.setItem('home_module2_bg_b64', homeModule2Bg);
+    localStorage.setItem('global_page_bg_b64', globalPageBg);
     window.dispatchEvent(new Event('avatar-updated'));
 
     setActiveQuickForm(null);
@@ -849,10 +891,23 @@ export default function App() {
   });
 
   return (
-    <div id="full-system-container" className="min-h-screen bg-neutral-100 flex flex-col justify-between selection:bg-black selection:text-white relative font-sans overflow-x-hidden pt-12 pb-14 md:pb-0 md:pr-20">
+    <div id="full-system-container" className="min-h-screen bg-neutral-100 flex flex-col justify-between selection:bg-black selection:text-white relative font-sans overflow-x-hidden pt-12 pb-14 md:pb-0 md:pr-0">
       
       {/* Background Interactive Canvas Animation (Color themes purged) */}
       <InteractiveBg />
+
+      {/* Global Background Image Underlay */}
+      {globalPageBg && (
+        <div 
+          className="fixed inset-0 w-full h-full pointer-events-none z-0" 
+          style={{ 
+            backgroundImage: `url(${globalPageBg})`, 
+            backgroundSize: 'cover', 
+            backgroundPosition: 'center',
+            opacity: 0.14
+          }} 
+        />
+      )}
 
       {/* Music Playlist Control Box (Integrated in standard locations) */}
       <div id="procedural-synth-playlist-badge" className="fixed top-2 left-4 md:left-6 z-50">
@@ -896,7 +951,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Structural Outer Frame styled like a Swiss architectural zine layout */}
-      <div className="flex-1 flex flex-col md:flex-row max-w-[1400px] w-full mx-auto bg-white border-2 border-black relative shadow-2xl overflow-hidden min-h-[calc(100vh-3rem)]">
+      <div className="flex-1 flex flex-col md:flex-row w-full bg-white/30 backdrop-blur-[1px] border-2 border-black relative shadow-2xl overflow-hidden min-h-[calc(100vh-3rem)]">
         
         {/* DECORATION PIXEL CORNERS IN THE BORDER LAYOUT */}
         <div className="absolute top-0 left-0 w-8 h-8 border-l-4 border-t-4 border-black pointer-events-none z-10" />
@@ -905,28 +960,28 @@ export default function App() {
         <div className="absolute bottom-0 right-0 w-8 h-8 border-r-4 border-b-4 border-black pointer-events-none z-10" />
 
         {/* LEFT COLUMN BRICK: LOGO DISPLAY & VERTICAL SLIDER STICKER */}
-        <aside className="w-full md:w-28 border-b-2 md:border-b-0 md:border-r-2 border-black flex flex-row md:flex-col items-center justify-between p-4 md:py-8 shrink-0 bg-neutral-50 relative z-20">
-          <div className="flex flex-col md:w-full gap-2 items-center md:items-start text-center md:text-left">
+        <aside className="w-full md:w-28 md:fixed md:left-0 md:top-0 md:bottom-0 border-b-2 md:border-b-0 md:border-r-2 border-black flex flex-row md:flex-col items-center justify-between p-4 md:py-6 shrink-0 bg-[#fafaf9]/30 backdrop-blur-[1px] z-40">
+          <div className="flex flex-col md:w-full gap-3.5 items-center md:items-center text-center">
             <Logo />
             
             {/* Quick Sidebar Login Entrance */}
-            <div className="mt-6 pt-6 border-t border-dashed border-neutral-300 w-full hidden md:flex flex-col gap-2 font-mono text-[9px] text-zinc-600">
+            <div className="mt-3 pt-3 border-t border-dashed border-neutral-300 w-full hidden md:flex flex-col gap-1.5 font-mono text-[9px] text-zinc-600">
               {isAdminLoggedIn ? (
                 <div className="space-y-1 w-full text-left">
-                  <div className="flex items-center gap-1.5 text-black font-bold uppercase tracking-wider select-none">
-                    <span className="w-2 h-2 bg-black rounded-full animate-pulse shrink-0" />
-                    <span>ADMIN ON</span>
+                  <div className="flex items-center gap-1 text-black font-bold uppercase tracking-wider select-none">
+                    <span className="w-1.5 h-1.5 bg-black rounded-full animate-pulse shrink-0" />
+                    <span className="text-[8px]">ADMIN ON</span>
                   </div>
                   <button
                     onClick={handleAdminLogout}
-                    className="w-full text-center py-1 mt-1 font-bold bg-black text-white hover:bg-neutral-800 transition-all border border-black cursor-pointer uppercase text-[8.5px]"
+                    className="w-full text-center py-0.5 mt-0.5 font-bold bg-black text-white hover:bg-neutral-800 transition-all border border-black cursor-pointer uppercase text-[8px]"
                   >
                     {lang === 'en' ? '[LOGOUT]' : '[安全退出]'}
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleAdminLogin} className="space-y-2 w-full">
-                  <span className="text-zinc-500 font-extrabold uppercase block text-[8px] tracking-widest select-none">
+                <form onSubmit={handleAdminLogin} className="space-y-1 w-full">
+                  <span className="text-zinc-500 font-extrabold uppercase block text-[7.5px] tracking-wider select-none">
                     {lang === 'en' ? '🔐 STUDIO KEY' : '🔐 密钥登录'}
                   </span>
                   <input
@@ -934,16 +989,16 @@ export default function App() {
                     value={passcodeInput}
                     onChange={(e) => setPasscodeInput(e.target.value)}
                     placeholder={lang === 'en' ? "Key..." : "凭据..."}
-                    className="w-full border border-black p-1 bg-white text-[9px] leading-tight outline-none placeholder-zinc-400 text-center"
+                    className="w-full border border-black px-1 py-0.5 bg-white text-[8px] leading-tight outline-none placeholder-zinc-400 text-center"
                   />
                   <button
                     type="submit"
-                    className="w-full text-center py-0.5 bg-neutral-200 border border-black hover:bg-black hover:text-white transition-all font-bold uppercase text-[8px] cursor-pointer"
+                    className="w-full text-center py-0.5 bg-neutral-200 border border-black hover:bg-black hover:text-white transition-all font-bold uppercase text-[7.5px] cursor-pointer"
                   >
                     ENTER
                   </button>
                   {loginError && (
-                    <span className="text-red-500 block text-[7.5px] leading-tight font-black select-none mt-1">
+                    <span className="text-red-500 block text-[7px] leading-tight font-black select-none mt-0.5">
                       {lang === 'en' ? 'KEY_ERR' : '密钥错误'}
                     </span>
                   )}
@@ -973,29 +1028,29 @@ export default function App() {
             )}
           </div>
           
-          <div className="hidden md:flex flex-col items-center gap-3.5 mt-auto">
-            <div style={{ writingMode: 'vertical-rl' }} className="rotate-180 text-[10px] tracking-[0.3em] font-mono text-neutral-400 font-extrabold uppercase py-6 select-none">
+          <div className="hidden md:flex flex-col items-center gap-2 mt-auto">
+            <div style={{ writingMode: 'vertical-rl' }} className="rotate-180 text-[8.5px] tracking-[0.2em] font-mono text-neutral-400 font-extrabold uppercase py-2 select-none">
               EDITORIAL STUDY ARCHIVE // VOL.2026
             </div>
             {/* The studio system board gear UI moved to the bottom left */}
             <button
               onClick={() => handleTabChange('admin')}
-              className={`p-2 border-2 border-black rounded-full transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center ${
+              className={`p-1.5 border-2 border-black rounded-full transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center ${
                 activeTab === 'admin'
                   ? 'bg-black text-white hover:bg-neutral-800'
                   : 'bg-white text-black hover:bg-neutral-100 shadow-sm'
               }`}
               title={lang === 'en' ? 'Studio Plan Board' : '工作台系统大盘'}
             >
-              <Settings className="w-4 h-4 animate-[spin_12s_linear_infinite]" />
+              <Settings className="w-3.5 h-3.5 animate-[spin_12s_linear_infinite]" />
             </button>
             {/* Quick system status coordinate tag */}
-            <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />
+            <div className="w-1 h-1 bg-black rounded-full animate-pulse" />
           </div>
         </aside>
 
         {/* MIDDLE COLUMN BRICK: THE MAIN COMPONENT SLIDER ROUTE VIEWPORT */}
-        <main className="flex-1 min-w-0 relative flex flex-col p-6 md:p-12 pb-24 md:pb-12 z-10 bg-white/70 overflow-y-auto">
+        <main className="flex-1 min-w-0 md:ml-28 md:mr-28 relative flex flex-col p-6 md:p-12 pb-24 md:pb-12 z-10 bg-white/10 overflow-y-auto">
           
           {/* Subtle grid accent background */}
           <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundImageSize: '24px 24px' }} />
@@ -1022,57 +1077,91 @@ export default function App() {
                 {/* Visual portfolio entry teaser */}
                 <div 
                   onClick={() => handleTabChange(showcase1Redirect)}
-                  className="group relative aspect-[4/3] border-2 border-black bg-neutral-100 flex flex-col justify-end p-6 overflow-hidden shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
+                  className="group relative aspect-[4/3] border-2 border-black bg-neutral-100 flex flex-col justify-end p-6 overflow-hidden shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all duration-500 cursor-pointer"
                 >
-                  {/* Decorative Architectural Grid Pattern to replace avatar image */}
-                  <div className="absolute inset-0 p-4 flex flex-col justify-between opacity-10 group-hover:opacity-20 transition-opacity">
-                    <div className="flex justify-between items-start">
-                      <div className="font-mono text-[8px] leading-tight text-black">
-                        W. LU // ARCHIVE<br />
-                        EST. 2021<br />
-                        SWISS_AXIS_GRID
+                  {/* Background Image with grayscale & hover effect */}
+                  {homeModule1Bg ? (
+                    <img 
+                      src={homeModule1Bg} 
+                      alt="Teaser 1 BG" 
+                      className="absolute inset-0 w-full h-full object-cover grayscale opacity-90 transition-all duration-700 ease-out group-hover:grayscale-0 group-hover:scale-105 group-hover:opacity-100"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    /* Decorative Architectural Grid Pattern to replace avatar image */
+                    <div className="absolute inset-0 p-4 flex flex-col justify-between opacity-10 group-hover:opacity-20 transition-opacity">
+                      <div className="flex justify-between items-start">
+                        <div className="font-mono text-[8px] leading-tight text-black">
+                          W. LU // ARCHIVE<br />
+                          EST. 2021<br />
+                          SWISS_AXIS_GRID
+                        </div>
+                        <div className="text-right font-mono text-[8px] leading-tight text-black">
+                          SYSTEM // INTEL<br />
+                          NATIVE_SOIL_REC<br />
+                          RE-STRUCTURED
+                        </div>
                       </div>
-                      <div className="text-right font-mono text-[8px] leading-tight text-black">
-                        SYSTEM // INTEL<br />
-                        NATIVE_SOIL_REC<br />
-                        RE-STRUCTURED
+                      <div className="text-[12rem] font-serif font-extralight tracking-tighter text-black select-none leading-none -mb-16 -ml-8">
+                        LU
                       </div>
                     </div>
-                    <div className="text-[12rem] font-serif font-extralight tracking-tighter text-black select-none leading-none -mb-16 -ml-8">
-                      LU
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="absolute top-4 left-4 font-mono text-[9px] font-black bg-black text-white px-1.5 py-0.5 border border-white">
+                  {/* Semitranslucent dark overlay on hover/always, to guarantee text visibility */}
+                  <div className={`absolute inset-0 transition-all duration-500 ${homeModule1Bg ? 'bg-black/40 group-hover:bg-black/25' : 'bg-neutral-900/10 group-hover:bg-neutral-950/20'}`} />
+
+                  <div className="absolute top-4 left-4 font-mono text-[9px] font-black bg-black text-white px-1.5 py-0.5 border border-white z-10">
                     {lang === 'en' ? showcase1BadgeEn : showcase1BadgeZh}
                   </div>
-                  <div className="relative z-10 space-y-2">
-                    <p className="font-mono text-[10px] text-black uppercase tracking-widest font-bold">
+                  <div className="relative z-10 space-y-2 text-white drop-shadow-md">
+                    <p className="font-mono text-[10px] text-zinc-200 uppercase tracking-widest font-bold">
                       {lang === 'en' ? showcase1SubtitleEn : showcase1SubtitleZh}
                     </p>
-                    <h3 className="font-serif text-2xl font-black italic tracking-tight text-black group-hover:underline font-black leading-snug">
+                    <h3 className="font-serif text-2xl font-black italic tracking-tight text-white group-hover:underline font-black leading-snug">
                       {lang === 'en' ? showcase1TitleEn : showcase1TitleZh}
                     </h3>
                   </div>
-                  <div className="absolute bottom-6 right-6 text-2xl text-black group-hover:translate-x-1.5 transition-transform">→</div>
+                  <div className="absolute bottom-6 right-6 text-2xl text-white group-hover:translate-x-1.5 transition-transform z-10 drop-shadow">→</div>
                 </div>
 
                 {/* Micro Editorial take-outs block */}
-                <div className="flex flex-col justify-between p-6 border-2 border-black bg-black text-white space-y-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] relative overflow-hidden">
-                  <div className="space-y-2">
+                <div 
+                  onClick={() => handleTabChange(showcase2Redirect)}
+                  className="group relative flex flex-col justify-between p-6 border-2 border-black bg-black text-white min-h-[300px] md:min-h-0 space-y-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all duration-500 overflow-hidden cursor-pointer"
+                >
+                  {/* Background Image with grayscale & hover effect */}
+                  {homeModule2Bg ? (
+                    <img 
+                      src={homeModule2Bg} 
+                      alt="Teaser 2 BG" 
+                      className="absolute inset-0 w-full h-full object-cover grayscale opacity-80 transition-all duration-700 ease-out group-hover:grayscale-0 group-hover:scale-105 group-hover:opacity-100"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-neutral-900/20" />
+                  )}
+
+                  {/* Semitranslucent screen overlay to guarantee high-contrast reading text */}
+                  <div className={`absolute inset-0 transition-all duration-500 ${homeModule2Bg ? 'bg-black/60 group-hover:bg-black/40' : 'bg-transparent'}`} />
+
+                  <div className="space-y-2 relative z-10">
                     <span className="px-1.5 py-0.5 bg-neutral-800 border border-neutral-700 font-mono text-[9px] uppercase tracking-widest font-black inline-block text-white">
                       {lang === 'en' ? showcase2BadgeEn : showcase2BadgeZh}
                     </span>
-                    <h3 className="font-serif text-xl font-bold tracking-tight">
+                    <h3 className="font-serif text-xl font-bold tracking-tight text-white">
                       {lang === 'en' ? showcase2TitleEn : showcase2TitleZh}
                     </h3>
                   </div>
-                  <p className="font-serif text-neutral-400 text-xs leading-relaxed max-w-sm">
+                  <p className="font-serif text-neutral-200 text-xs leading-relaxed max-w-sm relative z-10 drop-shadow">
                     {lang === 'en' ? showcase2DescEn : showcase2DescZh}
                   </p>
                   <button 
-                    onClick={() => handleTabChange(showcase2Redirect)}
-                    className="self-start font-mono text-xs font-black uppercase flex items-center gap-1 hover:text-neutral-300 pointer group cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTabChange(showcase2Redirect);
+                    }}
+                    className="self-start font-mono text-xs font-black uppercase flex items-center gap-1 hover:text-neutral-300 pointer group cursor-pointer relative z-10"
                   >
                     <span>{lang === 'en' ? `EXPLORE ${showcase2Redirect.toUpperCase()} ARCHIVES` : '进入特写展示页面'}</span>
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform text-neutral-300" />
@@ -1227,7 +1316,7 @@ export default function App() {
                         </div>
 
                         <div className="space-y-3">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mt-3">
                             <span className="font-mono text-[10px] text-neutral-400 font-semibold tracking-widest leading-none uppercase select-none">
                               Phase {stepNum} // {lang === 'en' ? phaseEn : phaseZh}
                             </span>
@@ -1316,17 +1405,22 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left col: Typographic Brand Mark Profile */}
                 <div className="space-y-4">
-                  {/* Avatar Upload Dropzone Card */}
+                  {/* Avatar upload/view slot */}
                   <div 
-                    title="Click or drag image here to upload new avatar / 点击或拖拽上传头像"
+                    title={isAdminLoggedIn ? "Click or drag image here to upload new avatar / 点击或拖拽上传头像" : "Click to view full image / 点击查看大图"}
                     onClick={() => {
-                      document.getElementById('about-avatar-picker-input')?.click();
+                      if (isAdminLoggedIn) {
+                        document.getElementById('about-avatar-picker-input')?.click();
+                      } else {
+                        setIsPortraitLightboxOpen(true);
+                      }
                     }}
                     onDragOver={(e) => {
                       e.preventDefault();
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
+                      if (!isAdminLoggedIn) return;
                       const file = e.dataTransfer.files?.[0];
                       if (file && file.type.startsWith('image/')) {
                         const reader = new FileReader();
@@ -1341,7 +1435,7 @@ export default function App() {
                         reader.readAsDataURL(file);
                       }
                     }}
-                    className="border-2 border-black bg-neutral-900 text-white shadow-[4px_4px_0px_rgba(0,0,0,1)] aspect-square flex flex-col justify-between relative overflow-hidden group cursor-pointer select-none rounded transition-all hover:scale-[1.01]"
+                    className="border-2 border-black bg-neutral-900 text-white shadow-[4px_4px_0px_rgba(0,0,0,1)] aspect-square w-full mx-auto md:mx-0 flex flex-col justify-between relative overflow-hidden group cursor-pointer select-none rounded transition-all hover:scale-[1.01]"
                   >
                     {/* Hidden Native File Picker */}
                     <input 
@@ -1350,6 +1444,7 @@ export default function App() {
                       accept="image/*" 
                       className="hidden" 
                       onChange={(e) => {
+                        if (!isAdminLoggedIn) return;
                         const file = e.target.files?.[0];
                         if (file) {
                           const reader = new FileReader();
@@ -1371,21 +1466,25 @@ export default function App() {
                         <img 
                           src={avatarB64} 
                           alt="Avatar" 
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
+                          className="w-full h-full object-cover transition-transform duration-350 group-hover:scale-105" 
                           referrerPolicy="no-referrer" 
                         />
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-4">
                           <div className="flex justify-between items-start font-mono text-[8px] text-zinc-300 pointer-events-none">
                             <span>W. LU</span>
-                            <span>REPLACE AVATAR</span>
+                            <span>{isAdminLoggedIn ? 'REPLACE AVATAR' : 'PORTRAIT ZOOM'}</span>
                           </div>
-                          <div className="text-center font-mono text-[10px] text-white pointer-events-none">
-                            {lang === 'en' ? '[ CLICK / DRAG IMAGE TO UPDATE ]' : '[ 点击或拖拽上传新头像 ]'}
+                          <div className="text-center font-mono text-[10px] text-white pointer-events-none px-2 leading-relaxed">
+                            {isAdminLoggedIn ? (
+                              lang === 'en' ? '[ CLICK / DRAG IMAGE TO UPDATE ]' : '[ 点击或拖拽上传新头像 ]'
+                            ) : (
+                              lang === 'en' ? '[ CLICK TO VIEW FULL PORTRAIT ]' : '[ 点击查看高清个人大图 ]'
+                            )}
                           </div>
                           <div className="flex justify-between items-end font-mono text-[8px] text-zinc-300 pointer-events-none">
                             <span>UP_GRADE</span>
-                            <span>SOUTH_GRID</span>
+                            <span>{isAdminLoggedIn ? 'ADMIN' : 'VISITOR'}</span>
                           </div>
                         </div>
                       </div>
@@ -1399,13 +1498,17 @@ export default function App() {
                         <div className="text-center font-serif text-6xl font-black tracking-tighter text-white my-auto flex flex-col items-center justify-center font-black">
                           <span>LU</span>
                           <span className="text-[9px] font-mono tracking-wider font-bold animate-pulse text-neutral-400 mt-2">
-                            {lang === 'en' ? '[UPLOAD PORTRAIT]' : '[点击上传头像]'}
+                            {isAdminLoggedIn ? (
+                              lang === 'en' ? '[UPLOAD PORTRAIT]' : '[点击上传头像]'
+                            ) : (
+                              lang === 'en' ? '[NO IMAGE]' : '[点击预览]'
+                            )}
                           </span>
                         </div>
 
                         <div className="flex justify-between items-end font-mono text-[8px] text-neutral-400 p-4">
                           <span>STUDIO INDEX</span>
-                          <span>SOUTH_GRID</span>
+                          <span>{isAdminLoggedIn ? 'ADMIN' : 'VISITOR'}</span>
                         </div>
                       </>
                     )}
@@ -2154,7 +2257,7 @@ export default function App() {
                                 <button onClick={() => { handleTabChange('timeline'); }} className="text-[9px] underline hover:text-neutral-500">[View Timeline Live]</button>
                               </h4>
                               <div className="max-h-52 overflow-y-auto space-y-1 pr-1 border border-neutral-100 p-2 bg-neutral-50">
-                                {timelineList.map(tData => {
+                                {timelineList.map((tData, index) => {
                                   const titleEn = tData.title_en || tData.stageTitle || '';
                                   const titleZh = tData.title_zh || tData.stageTitleZh || '';
                                   return (
@@ -2163,6 +2266,39 @@ export default function App() {
                                       <div className="flex gap-1.5 items-center shrink-0">
                                         {tData.status_cms === 'Draft' && <span className="px-1 text-[8px] bg-neutral-100 text-neutral-400 border select-none">DRAFT</span>}
                                         {tData.visibility === 'Private' && <span className="text-[10px]" title="Private">🔒</span>}
+                                        <span className="text-[9px] text-neutral-300">|</span>
+                                        <button
+                                          disabled={index === 0}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const nextList = [...timelineList];
+                                            const temp = nextList[index];
+                                            nextList[index] = nextList[index - 1];
+                                            nextList[index - 1] = temp;
+                                            setTimelineList(nextList);
+                                            saveToLocal('archive_timeline', nextList);
+                                          }}
+                                          className="px-1 bg-neutral-105 hover:bg-neutral-200 border border-neutral-300 rounded text-[9.5px] disabled:opacity-25 active:scale-95 transition-all text-neutral-700 cursor-pointer font-bold select-none"
+                                          title="Move Up"
+                                        >
+                                          ▲
+                                        </button>
+                                        <button
+                                          disabled={index === timelineList.length - 1}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const nextList = [...timelineList];
+                                            const temp = nextList[index];
+                                            nextList[index] = nextList[index + 1];
+                                            nextList[index + 1] = temp;
+                                            setTimelineList(nextList);
+                                            saveToLocal('archive_timeline', nextList);
+                                          }}
+                                          className="px-1 bg-neutral-105 hover:bg-neutral-200 border border-neutral-300 rounded text-[9.5px] disabled:opacity-25 active:scale-95 transition-all text-neutral-700 cursor-pointer font-bold select-none"
+                                          title="Move Down"
+                                        >
+                                          ▼
+                                        </button>
                                         <span className="text-[9px] text-neutral-300">|</span>
                                         <button
                                           onClick={(e) => handleOpenTimelineEdit(e, tData)}
@@ -2633,6 +2769,88 @@ export default function App() {
                                   </button>
                                 </div>
                               </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Homepage & Global Background Images Upload Module */}
+                        <div className="border border-neutral-300 p-4 bg-neutral-100/50 space-y-4 rounded">
+                          <div className="flex justify-between items-center border-b border-neutral-350 pb-1.5">
+                            <span className="text-black font-extrabold uppercase text-[10px]">🖼️ Custom Background Images Upload (模块背景与全局壁纸)</span>
+                            <span className="text-[8.5px] bg-black text-white px-1 font-mono uppercase">BACKGROUND_ENGINE</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
+                            {/* Card 1 Background */}
+                            <div className="p-3 bg-white border border-neutral-300 rounded space-y-2">
+                              <span className="text-[9px] font-bold uppercase text-neutral-500 block">Slot 1 (Left Card) Background Image</span>
+                              {homeModule1Bg ? (
+                                <div className="space-y-1">
+                                  <img src={homeModule1Bg} alt="slot1-bg font-light" className="h-16 w-full object-cover border border-neutral-200" />
+                                  <button
+                                    type="button"
+                                    onClick={() => { setHomeModule1Bg(''); localStorage.removeItem('home_module1_bg_b64'); }}
+                                    className="w-full text-center py-1 text-[8.5px] bg-red-100 hover:bg-red-200 text-red-700 uppercase font-mono font-black"
+                                  >
+                                    [ Clear / 清除 ]
+                                  </button>
+                                </div>
+                              ) : (
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleBgImageUpload(e, setHomeModule1Bg, 'home_module1_bg_b64')}
+                                  className="w-full text-[10px] border border-dashed border-neutral-300 p-2 cursor-pointer font-bold"
+                                />
+                              )}
+                            </div>
+
+                            {/* Card 2 Background */}
+                            <div className="p-3 bg-white border border-neutral-300 rounded space-y-2">
+                              <span className="text-[9px] font-bold uppercase text-neutral-500 block">Slot 2 (Right Card) Background Image</span>
+                              {homeModule2Bg ? (
+                                <div className="space-y-1">
+                                  <img src={homeModule2Bg} alt="slot2-bg" className="h-16 w-full object-cover border border-neutral-200" />
+                                  <button
+                                    type="button"
+                                    onClick={() => { setHomeModule2Bg(''); localStorage.removeItem('home_module2_bg_b64'); }}
+                                    className="w-full text-center py-1 text-[8.5px] bg-red-100 hover:bg-red-200 text-red-700 uppercase font-mono font-black"
+                                  >
+                                    [ Clear / 清除 ]
+                                  </button>
+                                </div>
+                              ) : (
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleBgImageUpload(e, setHomeModule2Bg, 'home_module2_bg_b64')}
+                                  className="w-full text-[10px] border border-dashed border-neutral-300 p-2 cursor-pointer font-bold"
+                                />
+                              )}
+                            </div>
+
+                            {/* Global Page Background */}
+                            <div className="p-3 bg-white border border-neutral-300 rounded space-y-2">
+                              <span className="text-[9px] font-bold uppercase text-neutral-500 block">🖥️ Global Webpage Background Image</span>
+                              {globalPageBg ? (
+                                <div className="space-y-1">
+                                  <img src={globalPageBg} alt="global-bg" className="h-16 w-full object-cover border border-neutral-200" />
+                                  <button
+                                    type="button"
+                                    onClick={() => { setGlobalPageBg(''); localStorage.removeItem('global_page_bg_b64'); }}
+                                    className="w-full text-center py-1 text-[8.5px] bg-red-100 hover:bg-red-200 text-red-700 uppercase font-mono font-black"
+                                  >
+                                    [ Clear / 清除 ]
+                                  </button>
+                                </div>
+                              ) : (
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleBgImageUpload(e, setGlobalPageBg, 'global_page_bg_b64')}
+                                  className="w-full text-[10px] border border-dashed border-neutral-300 p-2 cursor-pointer font-bold"
+                                />
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3170,18 +3388,24 @@ export default function App() {
                                     const artistInput = prompt(lang === 'en' ? "Please enter Artist Name:" : "请输入表演艺术家/合成器名称:") || "Resident Synth";
                                     const finalTitle = prompt(lang === 'en' ? "Please confirm Song Title:" : "请确认歌曲名称:", originalTitle) || originalTitle;
                                     
-                                    const newTrack = {
-                                      id: `track-custom-${Date.now()}`,
-                                      title: finalTitle,
-                                      artist: artistInput,
-                                      fileUrl: base64,
-                                      duration: '03:15'
-                                    };
-                                    const updated = [newTrack, ...customTracks];
-                                    setCustomTracks(updated);
-                                    localStorage.setItem('playlist_tracks', JSON.stringify(updated));
-                                    window.dispatchEvent(new Event('playlist-updated'));
-                                    alert(lang === 'en' ? 'Track uploaded and selected for default autoplay!' : '全新声轨曲目已成功加载并被设置为系统首选自动播放！');
+                                    const trackId = `track-custom-${Date.now()}`;
+                                    audioDB.setTrackData(trackId, base64).then(() => {
+                                      const newTrack = {
+                                        id: trackId,
+                                        title: finalTitle,
+                                        artist: artistInput,
+                                        fileUrl: '', // Clear this to save localstorage quota!
+                                        duration: '03:15'
+                                      };
+                                      const updated = [newTrack, ...customTracks];
+                                      setCustomTracks(updated);
+                                      localStorage.setItem('playlist_tracks', JSON.stringify(updated));
+                                      window.dispatchEvent(new Event('playlist-updated'));
+                                      alert(lang === 'en' ? 'Track uploaded and selected for default autoplay!' : '全新声轨曲目已成功加载并被设置为系统首选自动播放！');
+                                    }).catch(err => {
+                                      console.error("Failed to save audio track in browser store:", err);
+                                      alert(lang === 'en' ? 'Failed to save track in database.' : '存储到本地数据库失败。');
+                                    });
                                   };
                                   reader.readAsDataURL(file);
                                 } else {
@@ -3208,18 +3432,24 @@ export default function App() {
                                       const artistInput = prompt(lang === 'en' ? "Please enter Artist Name:" : "请输入表演艺术家/合成器名称:") || "Resident Synth";
                                       const finalTitle = prompt(lang === 'en' ? "Please confirm Song Title:" : "请确认歌曲名称:", originalTitle) || originalTitle;
                                       
-                                      const newTrack = {
-                                        id: `track-custom-${Date.now()}`,
-                                        title: finalTitle,
-                                        artist: artistInput,
-                                        fileUrl: base64,
-                                        duration: '03:15'
-                                      };
-                                      const updated = [newTrack, ...customTracks];
-                                      setCustomTracks(updated);
-                                      localStorage.setItem('playlist_tracks', JSON.stringify(updated));
-                                      window.dispatchEvent(new Event('playlist-updated'));
-                                      alert(lang === 'en' ? 'Track uploaded and selected for default autoplay!' : '全新声轨曲目已成功加载并被设置为系统首选自动播放！');
+                                      const trackId = `track-custom-${Date.now()}`;
+                                      audioDB.setTrackData(trackId, base64).then(() => {
+                                        const newTrack = {
+                                          id: trackId,
+                                          title: finalTitle,
+                                          artist: artistInput,
+                                          fileUrl: '', // Clear to save localstorage quota!
+                                          duration: '03:15'
+                                        };
+                                        const updated = [newTrack, ...customTracks];
+                                        setCustomTracks(updated);
+                                        localStorage.setItem('playlist_tracks', JSON.stringify(updated));
+                                        window.dispatchEvent(new Event('playlist-updated'));
+                                        alert(lang === 'en' ? 'Track uploaded and selected for default autoplay!' : '全新声轨曲目已成功加载并被设置为系统首选自动播放！');
+                                      }).catch(err => {
+                                        console.error("Failed to save audio track in browser store:", err);
+                                        alert(lang === 'en' ? 'Failed to save track in database.' : '存储到本地数据库失败。');
+                                      });
                                     };
                                     reader.readAsDataURL(file);
                                   }
@@ -3286,6 +3516,7 @@ export default function App() {
                                       onClick={() => {
                                         if (confirm(lang === 'en' ? `Remove track "${track.title}"?` : `确定要删除 "${track.title}" 曲目吗？`)) {
                                           const filtered = customTracks.filter(t => t.id !== track.id);
+                                          audioDB.deleteTrackData(track.id);
                                           setCustomTracks(filtered);
                                           localStorage.setItem('playlist_tracks', JSON.stringify(filtered));
                                           window.dispatchEvent(new Event('playlist-updated'));
@@ -3389,6 +3620,18 @@ export default function App() {
                   >
                     👤 {lang === 'en' ? 'Edit Practise Profile' : '编辑主理人宣言'}
                   </button>
+                  <button 
+                    onClick={() => { 
+                      setBrandNameInput(localStorage.getItem('brand_name') || 'WENDY LU');
+                      setHoverLeftInput(localStorage.getItem('logo_avatar_hover_left') || 'W. LU AVATAR');
+                      setHoverRightInput(localStorage.getItem('logo_avatar_hover_right') || 'COORD // GZ');
+                      setIsBrandEditorOpen(true); 
+                      setIsFabOpen(false); 
+                    }}
+                    className="w-full text-left py-1 hover:bg-neutral-50 hover:pl-1.5 transition-all text-neutral-900 flex items-center gap-1.5 cursor-pointer border-t border-solid border-neutral-300 mt-1.5 pt-1.5 font-extrabold"
+                  >
+                    ✏️ {lang === 'en' ? 'Edit Sidebar Name' : '编辑左侧展示名字'}
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -3410,6 +3653,95 @@ export default function App() {
           </div>
         </motion.div>
       )}
+
+      {/* SLIDING BRAND NAME EDITING SUB-DRAWER COLUMN */}
+      <AnimatePresence>
+        {isBrandEditorOpen && isAdminLoggedIn && (
+          <motion.div
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            className="fixed right-0 md:right-28 top-0 bottom-0 w-full md:w-80 bg-stone-50 border-l-2 border-black z-50 flex flex-col p-6 shadow-2xl"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-black pb-3 mb-6 font-mono text-xs font-black select-none">
+              <span className="flex items-center gap-1">✏️ {lang === 'en' ? 'SIDEBAR NAME CUSTOMIZER' : '左固定栏品牌定制子栏'}</span>
+              <button 
+                onClick={() => setIsBrandEditorOpen(false)}
+                className="px-1.5 py-0.5 border border-black bg-black text-white hover:bg-neutral-800 font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="space-y-5 font-mono text-xs overflow-y-auto pr-1">
+              <div>
+                <label className="text-neutral-500 text-[10px] uppercase font-bold block mb-1.5 select-none">
+                  {lang === 'en' ? 'Sidebar Display Name' : '展示名称 (WENDY LU 字样)'}
+                </label>
+                <input
+                  type="text"
+                  value={brandNameInput}
+                  onChange={(e) => setBrandNameInput(e.target.value)}
+                  placeholder="e.g. Wendy LU"
+                  className="w-full border border-black p-2 bg-white font-bold uppercase text-black outline-none focus:ring-1 focus:ring-black"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-dashed border-neutral-300">
+                <label className="text-neutral-500 text-[10px] uppercase font-bold block mb-1.5 select-none">
+                  {lang === 'en' ? 'Avatar Hover Subtitle (Left)' : '头像悬浮卡片副标 (左)'}
+                </label>
+                <input
+                  type="text"
+                  value={hoverLeftInput}
+                  onChange={(e) => setHoverLeftInput(e.target.value)}
+                  placeholder="e.g. W. LU AVATAR"
+                  className="w-full border border-black p-2 bg-white text-xs text-black outline-none focus:ring-1 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-neutral-500 text-[10px] uppercase font-bold block mb-1.5 select-none">
+                  {lang === 'en' ? 'Avatar Hover Coordinates (Right)' : '头像悬浮卡片坐标 (右)'}
+                </label>
+                <input
+                  type="text"
+                  value={hoverRightInput}
+                  onChange={(e) => setHoverRightInput(e.target.value)}
+                  placeholder="e.g. COORD // GZ"
+                  className="w-full border border-black p-2 bg-white text-xs text-black outline-none focus:ring-1 focus:ring-black"
+                />
+              </div>
+
+              <div className="pt-4">
+                <button
+                  onClick={() => {
+                    localStorage.setItem('brand_name', brandNameInput.toUpperCase() || 'WENDY LU');
+                    localStorage.setItem('logo_avatar_hover_left', hoverLeftInput || 'W. LU AVATAR');
+                    localStorage.setItem('logo_avatar_hover_right', hoverRightInput || 'COORD // GZ');
+                    window.dispatchEvent(new Event('avatar-updated'));
+                    setIsBrandEditorOpen(false);
+                  }}
+                  className="w-full py-2.5 bg-black text-white hover:bg-neutral-850 border border-black font-extrabold uppercase text-center transition-all cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none"
+                >
+                  {lang === 'en' ? '✔ APPLY CHANGE' : '✔ 确认应用修改'}
+                </button>
+              </div>
+
+              <div className="text-[10px] text-zinc-500 pt-4 leading-relaxed select-none space-y-2">
+                <p>
+                  {lang === 'en' 
+                    ? 'This dynamic drawer panel opens as a supplementary sub-bar to support bespoke typography configs.' 
+                    : '本定制子树作为全局架构的辅助控制轨，点按应用后，相应的数据指令将通过消息总线广播，实时同步至左侧极简人文构架中。'}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* QUICK FLOATING MODAL FORM OVERLAYS FOR THE CREATOR */}
       {isAdminLoggedIn && activeQuickForm && (

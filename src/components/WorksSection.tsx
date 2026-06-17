@@ -17,7 +17,7 @@ interface WorksSectionProps {
 }
 
 export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = false, onSaveProjects }: WorksSectionProps) {
-  const [selectedCategory, setSelectedCategory] = useState<WorkCategory>('Storytelling');
+  const [selectedCategory, setSelectedCategory] = useState<WorkCategory>('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
@@ -88,9 +88,10 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeGalleryIndex, activeProject]);
 
-  const categories: WorkCategory[] = ['Storytelling', 'Campaigns', 'Design & Creation', 'Growth & Community', 'About'];
+  const categories: WorkCategory[] = ['All', 'Storytelling', 'Campaigns', 'Design & Creation', 'Growth & Community', 'About'];
 
   const categoryLabels: Record<string, string> = {
+    'All': lang === 'en' ? 'ALL' : '全部作品',
     'Storytelling': lang === 'en' ? 'Storytelling' : '故事叙事',
     'Campaigns': lang === 'en' ? 'Campaigns' : '社会策展',
     'Design & Creation': lang === 'en' ? 'Design & Creation' : '设计与创作',
@@ -100,7 +101,7 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
 
   // Filter based on roles, search, and login status (hide drafts/private from guests)
   const filteredProjects = projects.filter(proj => {
-    const matchesCategory = proj.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'All' ? true : proj.category === selectedCategory;
     const matchesSearch = proj.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           proj.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
                           (proj.description && proj.description.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -552,7 +553,7 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
 
       {/* Works Showcase Grid */}
       {filteredProjects.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
           {filteredProjects.map((proj) => (
             <div
               key={proj.id}
