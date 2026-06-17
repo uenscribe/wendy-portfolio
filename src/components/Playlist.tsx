@@ -47,6 +47,26 @@ export default function Playlist() {
     return () => window.removeEventListener('playlist-updated', handleUpdate);
   }, [currentTrackIndex]);
 
+  // Listen to remote play-track-command triggers
+  useEffect(() => {
+    const handleRemotePlay = (e: Event) => {
+      const customEvt = e as CustomEvent;
+      const { id } = customEvt.detail || {};
+      if (!id) return;
+
+      const idx = tracksList.findIndex((t: any) => t.id === id);
+      if (idx !== -1) {
+        setCurrentTrackIndex(idx);
+        cachedElapsedRef.current = 0;
+        setTimeState('00:00');
+        synthManager.play(tracksList[idx].id, tracksList[idx].fileUrl);
+        setIsPlaying(true);
+      }
+    };
+    window.addEventListener('play-track-command', handleRemotePlay);
+    return () => window.removeEventListener('play-track-command', handleRemotePlay);
+  }, [tracksList]);
+
   // Autoplay handler upon mounting the website
   useEffect(() => {
     let autoplayed = false;

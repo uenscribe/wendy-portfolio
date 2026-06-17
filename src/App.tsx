@@ -22,6 +22,34 @@ import {
   ExternalLink, Key, LogOut, Settings2, Settings, FileText, Book, Pin, EyeOff
 } from 'lucide-react';
 
+const compressAndCropToSquare = (base64Str: string, callback: (compressedB64: string) => void) => {
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    // We aim for exactly 300 x 300 px square, high-fidelity avatar that compresses wonderfully:
+    const size = 300;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const sx = (img.width - Math.min(img.width, img.height)) / 2;
+      const sy = (img.height - Math.min(img.width, img.height)) / 2;
+      const sSize = Math.min(img.width, img.height);
+      ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, size, size);
+      
+      // Store as JPEG with high quality. Base64 is guaranteed well under 300KB!
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      callback(compressedDataUrl);
+    } else {
+      callback(base64Str);
+    }
+  };
+  img.onerror = () => {
+    callback(base64Str);
+  };
+  img.src = base64Str;
+};
+
 export default function App() {
   const [lang, setLang] = useState<'en' | 'zh'>('en');
   const [activeTab, setActiveTab] = useState('home');
@@ -71,6 +99,11 @@ export default function App() {
   const [timelineList, setTimelineList] = useState<TimelineEntry[]>(() => {
     const saved = localStorage.getItem('archive_timeline');
     return saved ? JSON.parse(saved) : INITIAL_TIMELINE;
+  });
+
+  const [customTracks, setCustomTracks] = useState<any[]>(() => {
+    const saved = localStorage.getItem('playlist_tracks');
+    return saved ? JSON.parse(saved) : TRACKS;
   });
 
   // Dynamic editable Profile / About fields
@@ -154,6 +187,55 @@ export default function App() {
 
   // Avatar state
   const [avatarB64, setAvatarB64] = useState(() => localStorage.getItem('logo_avatar_b64') || '');
+  const [avatarHoverLeft, setAvatarHoverLeft] = useState(() => localStorage.getItem('logo_avatar_hover_left') || 'W. LU AVATAR');
+  const [avatarHoverRight, setAvatarHoverRight] = useState(() => localStorage.getItem('logo_avatar_hover_right') || 'COORD // GZ');
+  const [draggableTimelineId, setDraggableTimelineId] = useState<string | null>(null);
+
+  // Default nav items
+  const DEFAULT_NAV_ITEMS = [
+    { id: 'home', label_en: 'HOME', label_zh: '首页', iconName: 'Home' },
+    { id: 'timeline', label_en: 'TIMELINE', label_zh: '历程', iconName: 'Clock' },
+    { id: 'works', label_en: 'WORKS', label_zh: '作品', iconName: 'FolderOpen' },
+    { id: 'notes', label_en: 'NOTES', label_zh: '笔记', iconName: 'Newspaper' },
+    { id: 'library', label_en: 'LIBRARY', label_zh: '书房', iconName: 'Library' },
+    { id: 'about', label_en: 'ABOUT', label_zh: '关于', iconName: 'User' },
+    { id: 'contact', label_en: 'CONTACT', label_zh: '联系', iconName: 'Send' },
+    { id: 'admin', label_en: 'STUDIO ⚙️', label_zh: '工作台 ⚙️', iconName: 'Settings' }
+  ];
+
+  const [customNavItems, setCustomNavItems] = useState(() => {
+    const saved = localStorage.getItem('custom_nav_items');
+    try {
+      return saved ? JSON.parse(saved) : DEFAULT_NAV_ITEMS;
+    } catch (e) {
+      return DEFAULT_NAV_ITEMS;
+    }
+  });
+
+  // Notes page editable titles & labels
+  const [noteTopSubtitleEn, setNoteTopSubtitleEn] = useState(() => localStorage.getItem('note_top_subtitle_en') || 'Reflections / Articles //');
+  const [noteTopSubtitleZh, setNoteTopSubtitleZh] = useState(() => localStorage.getItem('note_top_subtitle_zh') || '视窗文章与社群反思 //');
+  const [noteTopTitleEn, setNoteTopTitleEn] = useState(() => localStorage.getItem('note_top_title_en') || 'EDITORIAL ARCHIVE');
+  const [noteTopTitleZh, setNoteTopTitleZh] = useState(() => localStorage.getItem('note_top_title_zh') || '学者专栏与纪实档案');
+  const [noteBtnReadEn, setNoteBtnReadEn] = useState(() => localStorage.getItem('note_btn_read_en') || 'READ INSIGHTS');
+  const [noteBtnReadZh, setNoteBtnReadZh] = useState(() => localStorage.getItem('note_btn_read_zh') || '研读解密');
+  const [noteTitleInsightsEn, setNoteTitleInsightsEn] = useState(() => localStorage.getItem('note_title_insights_en') || 'EDITORIAL INSIGHT MAP');
+  const [noteTitleInsightsZh, setNoteTitleInsightsZh] = useState(() => localStorage.getItem('note_title_insights_zh') || '研读主干与内容洞察');
+  const [noteBtnLaunchEn, setNoteBtnLaunchEn] = useState(() => localStorage.getItem('note_btn_launch_en') || 'LAUNCH ORIGINAL INTERFACE');
+  const [noteBtnLaunchZh, setNoteBtnLaunchZh] = useState(() => localStorage.getItem('note_btn_launch_zh') || '进入模拟/原文链道');
+  const [noteBtnPublishEn, setNoteBtnPublishEn] = useState(() => localStorage.getItem('note_btn_publish_en') || 'PUBLISH NEW ARTICLE');
+  const [noteBtnPublishZh, setNoteBtnPublishZh] = useState(() => localStorage.getItem('note_btn_publish_zh') || '发表新专栏文章');
+
+  // About page core titles & lists
+  const [aboutContactTitleEn, setAboutContactTitleEn] = useState(() => localStorage.getItem('about_contact_title_en') || 'CONTACT CHANNELS');
+  const [aboutContactTitleZh, setAboutContactTitleZh] = useState(() => localStorage.getItem('about_contact_title_zh') || '中枢直连通道');
+  const [aboutSkillsTitleEn, setAboutSkillsTitleEn] = useState(() => localStorage.getItem('about_skills_title_en') || 'CORE SKILLS & CRAFT');
+  const [aboutSkillsTitleZh, setAboutSkillsTitleZh] = useState(() => localStorage.getItem('about_skills_title_zh') || '核心实干兵器量仪');
+  const [aboutSkillsListEn, setAboutSkillsListEn] = useState(() => localStorage.getItem('about_skills_list_en') || 'Editorial typography design\nResponsive front-end layouts\nSpatial mapping & installation\nWeb Audio procedural synthesizers\nCommunity engagement strategies');
+  const [aboutSkillsListZh, setAboutSkillsListZh] = useState(() => localStorage.getItem('about_skills_list_zh') || '编排向社论式网格视觉极度洁癖调试\n完全响应式、语调简洁的前端页面集\n地方声音地标采集绘制与物理快闪体验装置\n基于前端原生 Web Audio 的简素音乐发生合成器\n微有机街区活化、工作坊主持与共创策划运营');
+
+  // Timeline custom delete state modal
+  const [timelineToDelete, setTimelineToDelete] = useState<string | null>(null);
 
   // Sub Tab inside Administration workplace
   const [adminSubTab, setAdminSubTab] = useState('dashboard');
@@ -446,6 +528,33 @@ export default function App() {
     saveToLocal('archive_timeline', updated);
   };
 
+  const handleTimelineDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleTimelineDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleTimelineDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain');
+    if (!sourceId || sourceId === targetId) return;
+
+    const newList = [...timelineList];
+    const srcIndex = newList.findIndex(item => item.id === sourceId);
+    const tarIndex = newList.findIndex(item => item.id === targetId);
+    if (srcIndex === -1 || tarIndex === -1) return;
+
+    const [removed] = newList.splice(srcIndex, 1);
+    newList.splice(tarIndex, 0, removed);
+
+    setTimelineList(newList);
+    saveToLocal('archive_timeline', newList);
+    setDraggableTimelineId(null);
+  };
+
   // Generic direct creators for Deep Studio Quick Capture inputs
   const handleDirectAddProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -652,6 +761,8 @@ export default function App() {
     setTimelineIntroEn("A chronological track of a multidisciplinary creator who combines storytelling, content strategy, academic research, functional design, and deep audience understanding. Moving seamlessly between physical layout, human reporting, creative brand campaigns, product lifecycle operations, and the ultimate critical analysis of media environments.");
     setTimelineIntroZh("本时光记录档案追踪了一位集文字叙事、媒介传播策略、实地人种志采访、前端功能构建、以及重度人文宿愿于一体的跨媒介探索者。自如穿行在纸质印刷排印、老城街巷田野调研、创意品牌营销大促、数字化日常漏斗运营、以及表达社会学反思的媒介感知解密之间。");
     
+    setAvatarHoverLeft('W. LU AVATAR');
+    setAvatarHoverRight('COORD // GZ');
     setIsAdminLoggedIn(false);
     alert(lang === 'en' ? 'System restored cleanly.' : '系统重置复位成功。');
   };
@@ -670,6 +781,13 @@ export default function App() {
     localStorage.setItem('contact_channel_email', contactChannelEmail);
     localStorage.setItem('contact_channel_linkedin', contactChannelLinkedin);
     localStorage.setItem('contact_channel_phone', contactChannelPhone);
+
+    localStorage.setItem('about_contact_title_en', aboutContactTitleEn);
+    localStorage.setItem('about_contact_title_zh', aboutContactTitleZh);
+    localStorage.setItem('about_skills_title_en', aboutSkillsTitleEn);
+    localStorage.setItem('about_skills_title_zh', aboutSkillsTitleZh);
+    localStorage.setItem('about_skills_list_en', aboutSkillsListEn);
+    localStorage.setItem('about_skills_list_zh', aboutSkillsListZh);
 
     localStorage.setItem('brand_hero_sub_en', brandHeroSubEn);
     localStorage.setItem('brand_hero_sub_zh', brandHeroSubZh);
@@ -713,12 +831,16 @@ export default function App() {
     localStorage.setItem('timeline_intro_en', timelineIntroEn);
     localStorage.setItem('timeline_intro_zh', timelineIntroZh);
 
+    localStorage.setItem('logo_avatar_hover_left', avatarHoverLeft);
+    localStorage.setItem('logo_avatar_hover_right', avatarHoverRight);
+    window.dispatchEvent(new Event('avatar-updated'));
+
     setActiveQuickForm(null);
     setIsFabOpen(false);
     alert(lang === 'en' ? 'Practitioner page configs updated successfully.' : '全局中英双语版面文本与各子板块内容配置已成功保全更新！');
   };
 
-  // Filtering for Guest View on Timeline
+  // Filtering for Guest View on Timeline sorted from near (most recent) to far (oldest)
   const visibleTimelineList = timelineList.filter(item => {
     if (isAdminLoggedIn) return true;
     const isDraft = item.status_cms === 'Draft' || item.status_cms === 'Archived';
@@ -734,7 +856,7 @@ export default function App() {
 
       {/* Music Playlist Control Box (Integrated in standard locations) */}
       <div id="procedural-synth-playlist-badge" className="fixed top-2 left-4 md:left-6 z-50">
-        <Playlist tracks={TRACKS} themeColor="#000000" />
+        <Playlist tracks={customTracks} themeColor="#000000" />
       </div>
 
       {/* Floating Transition Animation Overlay */}
@@ -957,45 +1079,6 @@ export default function App() {
                   </button>
                 </div>
               </div>
-
-              {/* Design quote ribbon in middle page */}
-              <div className="border-y border-black py-4 grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-[10px] uppercase text-neutral-500 font-bold tracking-widest select-none">
-                <div>// {lang === 'en' ? ribbon1En : ribbon1Zh}</div>
-                <div>// {lang === 'en' ? ribbon2En : ribbon2Zh}</div>
-                <div className="md:text-right">// {lang === 'en' ? ribbon3En : ribbon3Zh}</div>
-              </div>
-
-              {/* Responsive showcase featuring 2 selected works (Filtering drafts for guest readers) */}
-              <div className="space-y-4">
-                <h3 className="font-serif text-lg font-black uppercase text-black">
-                  {lang === 'en' ? curatedArchivesTitleEn : curatedArchivesTitleZh}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {projectsList
-                    .filter(p => isAdminLoggedIn ? true : p.status_cms !== 'Draft' && p.visibility !== 'Private')
-                    .slice(0, 2).map(p => (
-                      <div 
-                        key={p.id}
-                        onClick={() => handleTabChange('works')}
-                        className="p-4 border border-black hover:border-neutral-900 bg-white hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex gap-4 items-center shadow-sm"
-                      >
-                        <img 
-                          src={p.imageUrl} 
-                          alt={p.title} 
-                          referrerPolicy="no-referrer"
-                          className="w-16 h-16 object-cover border border-black grayscale shrink-0" 
-                        />
-                        <div className="min-w-0">
-                          <span className="font-mono text-[8px] text-neutral-500 uppercase font-bold">
-                            {lang === 'en' ? p.category : (p.category === 'Storytelling' ? '故事叙事' : p.category)}
-                          </span>
-                          <h4 className="font-serif text-xs font-black truncate text-black">{p.title}</h4>
-                          <p className="font-serif text-[10px] text-neutral-400 line-clamp-1">{p.description}</p>
-                        </div>
-                      </div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
@@ -1103,7 +1186,12 @@ export default function App() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: '-50px' }}
                       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                      className="relative group cursor-pointer"
+                      className={`relative group cursor-pointer transition-all ${draggableTimelineId === item.id ? 'opacity-50 ring-2 ring-dashed ring-black animate-pulse' : ''}`}
+                      draggable={draggableTimelineId === item.id}
+                      onDragStart={(e) => handleTimelineDragStart(e, item.id)}
+                      onDragOver={handleTimelineDragOver}
+                      onDrop={(e) => handleTimelineDrop(e, item.id)}
+                      onDragEnd={() => setDraggableTimelineId(null)}
                     >
                       {/* Spine Indicator / Floating Large Year Label */}
                       <div className="absolute -left-[32px] md:-left-[88px] top-4 select-none pointer-events-none flex items-center justify-end gap-3 w-16 md:w-20">
@@ -1116,14 +1204,26 @@ export default function App() {
 
                       {/* Card container with off-white warm theme and pixel offsets on hover */}
                       <div className="bg-[#fafaf6] border border-neutral-200 group-hover:border-black p-6 transition-all duration-300 relative group-hover:-translate-y-1 group-hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] bg-cover">
-                        {/* Pixel accent grids visible on hover in corner */}
-                        <div className="absolute top-2 right-2 flex gap-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          {item.pinned && <span className="text-[8px] font-mono font-black border border-black bg-black text-white px-1 cursor-help mr-2" title="Pinned Pinned">📌 PINNED</span>}
+                        {/* Drag Handle or standard pixel cells in right corner */}
+                        <div 
+                          onDoubleClick={() => {
+                            if (isAdminLoggedIn) {
+                              setDraggableTimelineId(item.id === draggableTimelineId ? null : item.id);
+                            }
+                          }}
+                          className={`absolute top-2 right-2 flex gap-[2px] items-center p-1 cursor-pointer rounded transition-all duration-300 ${
+                            isAdminLoggedIn ? 'cursor-grab hover:bg-neutral-250' : ''
+                          } ${
+                            draggableTimelineId === item.id ? 'bg-zinc-200 border border-black opacity-100 animate-pulse scale-105 !opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
+                          title={isAdminLoggedIn ? (lang === 'en' ? "Double Click to Drag & Move // 双击触发重新排序拖拽" : "双击启动模块拖动排序") : undefined}
+                        >
+                          {item.pinned && <span className="text-[8px] font-mono font-black border border-black bg-black text-white px-1 cursor-help mr-2" title="Pinned">📌 PINNED</span>}
                           {item.status_cms === 'Draft' && <span className="text-[8px] font-mono font-black border border-black bg-neutral-200 text-black px-1 cursor-none mr-2">DRAFT</span>}
                           {item.visibility === 'Private' && <span className="text-[8px] font-mono font-black border border-neutral-700 bg-neutral-900 text-white px-1 cursor-none mr-2">🔒 PRIVATE</span>}
-                          <div className="w-[3px] h-[3px] bg-black" />
-                          <div className="w-[3px] h-[3px] bg-black" />
-                          <div className="w-[3px] h-[3px] bg-black" />
+                          <div className={`w-[3.5px] h-[3.5px] rounded-full ${draggableTimelineId === item.id ? 'bg-red-500 animate-ping' : 'bg-black'}`} />
+                          <div className={`w-[3.5px] h-[3.5px] rounded-full ${draggableTimelineId === item.id ? 'bg-red-500 animate-ping' : 'bg-black'}`} />
+                          <div className={`w-[3.5px] h-[3.5px] rounded-full ${draggableTimelineId === item.id ? 'bg-red-500 animate-ping' : 'bg-black'}`} />
                         </div>
 
                         <div className="space-y-3">
@@ -1216,28 +1316,110 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left col: Typographic Brand Mark Profile */}
                 <div className="space-y-4">
-                  <div className="border-2 border-black p-4 bg-black text-white shadow-[4px_4px_0px_rgba(0,0,0,1)] aspect-square flex flex-col justify-between relative overflow-hidden group select-none">
-                    <div className="flex justify-between items-start font-mono text-[8px] text-neutral-400" id="editorial-practitioner-block">
-                      <span>W. LU</span>
-                      <span>VOL.2026</span>
-                    </div>
-                    
-                    <div className="text-center font-serif text-6xl font-black tracking-tighter text-white my-auto flex items-center justify-center font-black animate-pulse">
-                      LU
-                    </div>
+                  {/* Avatar Upload Dropzone Card */}
+                  <div 
+                    title="Click or drag image here to upload new avatar / 点击或拖拽上传头像"
+                    onClick={() => {
+                      document.getElementById('about-avatar-picker-input')?.click();
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file && file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const base64 = event.target?.result as string;
+                          compressAndCropToSquare(base64, (compressed) => {
+                            setAvatarB64(compressed);
+                            localStorage.setItem('logo_avatar_b64', compressed);
+                            window.dispatchEvent(new Event('avatar-updated'));
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="border-2 border-black bg-neutral-900 text-white shadow-[4px_4px_0px_rgba(0,0,0,1)] aspect-square flex flex-col justify-between relative overflow-hidden group cursor-pointer select-none rounded transition-all hover:scale-[1.01]"
+                  >
+                    {/* Hidden Native File Picker */}
+                    <input 
+                      type="file" 
+                      id="about-avatar-picker-input" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const base64 = event.target?.result as string;
+                            compressAndCropToSquare(base64, (compressed) => {
+                              setAvatarB64(compressed);
+                              localStorage.setItem('logo_avatar_b64', compressed);
+                              window.dispatchEvent(new Event('avatar-updated'));
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
 
-                    <div className="flex justify-between items-end font-mono text-[8px] text-neutral-400">
-                      <span>STUDIO INDEX</span>
-                      <span>SOUTH_GRID</span>
-                    </div>
+                    {avatarB64 ? (
+                      <div className="absolute inset-0 w-full h-full">
+                        <img 
+                          src={avatarB64} 
+                          alt="Avatar" 
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
+                          referrerPolicy="no-referrer" 
+                        />
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-4">
+                          <div className="flex justify-between items-start font-mono text-[8px] text-zinc-300 pointer-events-none">
+                            <span>W. LU</span>
+                            <span>REPLACE AVATAR</span>
+                          </div>
+                          <div className="text-center font-mono text-[10px] text-white pointer-events-none">
+                            {lang === 'en' ? '[ CLICK / DRAG IMAGE TO UPDATE ]' : '[ 点击或拖拽上传新头像 ]'}
+                          </div>
+                          <div className="flex justify-between items-end font-mono text-[8px] text-zinc-300 pointer-events-none">
+                            <span>UP_GRADE</span>
+                            <span>SOUTH_GRID</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-start font-mono text-[8px] text-neutral-400 p-4" id="editorial-practitioner-block">
+                          <span>W. LU</span>
+                          <span>VOL.2026</span>
+                        </div>
+                        
+                        <div className="text-center font-serif text-6xl font-black tracking-tighter text-white my-auto flex flex-col items-center justify-center font-black">
+                          <span>LU</span>
+                          <span className="text-[9px] font-mono tracking-wider font-bold animate-pulse text-neutral-400 mt-2">
+                            {lang === 'en' ? '[UPLOAD PORTRAIT]' : '[点击上传头像]'}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-end font-mono text-[8px] text-neutral-400 p-4">
+                          <span>STUDIO INDEX</span>
+                          <span>SOUTH_GRID</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div className="p-4 bg-neutral-50 border border-black space-y-2 font-mono text-xs">
-                    <div className="font-bold uppercase text-black select-none">{lang === 'en' ? 'CONTACT CHANNELS' : '中枢直连通道'}</div>
-                    <div className="text-neutral-500 truncate flex items-center gap-1.5 hover:text-black hover:underline transition-colors">
+
+                  <div className="p-4 bg-neutral-50 border border-black space-y-2 font-mono text-xs rounded">
+                    <div className="font-bold uppercase text-black select-none">
+                      {lang === 'en' ? aboutContactTitleEn : aboutContactTitleZh}
+                    </div>
+                    <div className="text-neutral-500 truncate flex items-center gap-1.5 hover:text-black hover:underline transition-colors font-mono">
                       <Mail className="w-3.5 h-3.5 text-black shrink-0" />
                       <a href={`mailto:${contactChannelEmail}`} className="truncate" referrerPolicy="no-referrer">{contactChannelEmail}</a>
                     </div>
-                    <div className="text-neutral-500 flex items-center gap-1.5 hover:text-black hover:underline transition-colors truncate">
+                    <div className="text-neutral-500 flex items-center gap-1.5 hover:text-black hover:underline transition-colors truncate font-mono">
                       <Linkedin className="w-3.5 h-3.5 text-black shrink-0" />
                       <a
                         href={contactChannelLinkedin.startsWith('http') ? contactChannelLinkedin : `https://${contactChannelLinkedin}`}
@@ -1249,7 +1431,7 @@ export default function App() {
                         {contactChannelLinkedin}
                       </a>
                     </div>
-                    <div className="text-neutral-500 flex items-center gap-1.5 hover:text-black hover:underline transition-colors shrink-0">
+                    <div className="text-neutral-500 flex items-center gap-1.5 hover:text-black hover:underline transition-colors shrink-0 font-mono">
                       <Phone className="w-3.5 h-3.5 text-black shrink-0" />
                       <a href={`tel:${contactChannelPhone}`} referrerPolicy="no-referrer">{contactChannelPhone}</a>
                     </div>
@@ -1273,13 +1455,19 @@ export default function App() {
                   {/* Skills Grid and Interventions */}
                   <div className="grid grid-cols-1 gap-4">
                     <div className="border border-black p-4 space-y-2 bg-neutral-50 rounded">
-                      <h4 className="font-mono text-xs font-black uppercase text-black select-none">{lang === 'en' ? 'CORE SKILLS & CRAFT' : '核心实干兵器量仪'}</h4>
+                      <h4 className="font-mono text-xs font-black uppercase text-black select-none">
+                        {lang === 'en' ? aboutSkillsTitleEn : aboutSkillsTitleZh}
+                      </h4>
                       <ul className="font-mono text-[11px] text-neutral-600 space-y-1">
-                        <li>• {lang === 'en' ? 'Editorial typography design' : '编排向社论式网格视觉极度洁癖调试'}</li>
-                        <li>• {lang === 'en' ? 'Responsive front-end layouts' : '完全响应式、语调简洁的前端页面集'}</li>
-                        <li>• {lang === 'en' ? 'Spatial mapping & installation' : '地方声音地标采集绘制与物理快闪体验装置'}</li>
-                        <li>• {lang === 'en' ? 'Web Audio procedural synthesizers' : '基于前端原生 Web Audio 的简素音乐发生合成器'}</li>
-                        <li>• {lang === 'en' ? 'Community engagement strategies' : '微有机街区活化、工作坊主持与共创策划运营'}</li>
+                        {lang === 'en' ? (
+                          aboutSkillsListEn.split('\n').filter(Boolean).map((skill, index) => (
+                            <li key={index}>• {skill}</li>
+                          ))
+                        ) : (
+                          aboutSkillsListZh.split('\n').filter(Boolean).map((skill, index) => (
+                            <li key={index}>• {skill}</li>
+                          ))
+                        )}
                       </ul>
                     </div>
                   </div>
@@ -1317,7 +1505,7 @@ export default function App() {
                       <div className="flex items-center gap-4">
                         <div className="w-14 h-14 border-2 border-black bg-neutral-900 flex items-center justify-center overflow-hidden shrink-0">
                           {avatarB64 ? (
-                            <img src={avatarB64} alt="Avatar" className="w-full h-full object-cover grayscale" referrerPolicy="no-referrer" />
+                            <img src={avatarB64} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           ) : (
                             <span className="text-white text-[10px] font-black">W_CMS</span>
                           )}
@@ -1334,10 +1522,12 @@ export default function App() {
                                 const reader = new FileReader();
                                 reader.onload = (event) => {
                                   const base64 = event.target?.result as string;
-                                  setAvatarB64(base64);
-                                  localStorage.setItem('logo_avatar_b64', base64);
-                                  // dispatch logo updating events
-                                  window.dispatchEvent(new Event('avatar-updated'));
+                                  compressAndCropToSquare(base64, (compressed) => {
+                                    setAvatarB64(compressed);
+                                    localStorage.setItem('logo_avatar_b64', compressed);
+                                    // dispatch logo updating events
+                                    window.dispatchEvent(new Event('avatar-updated'));
+                                  });
                                 };
                                 reader.readAsDataURL(file);
                               }
@@ -1708,7 +1898,7 @@ export default function App() {
                       }`}
                     >
                       <span>🏠</span>
-                      <span>{lang === 'en' ? 'Homepage Copy & Showcase' : '主页标语与资源位配置'}</span>
+                      <span>{lang === 'en' ? 'Homepage Copy' : '主页标语与资源位配置'}</span>
                     </button>
                     <button
                       onClick={() => setAdminSubTab('about')}
@@ -1719,7 +1909,40 @@ export default function App() {
                       }`}
                     >
                       <span>👤</span>
-                      <span>{lang === 'en' ? 'Biography Settings' : '主理人宣言与简历配置'}</span>
+                      <span>{lang === 'en' ? 'Personal Info Settings' : '个人信息配置'}</span>
+                    </button>
+                    <button
+                      onClick={() => setAdminSubTab('navigation')}
+                      className={`px-3 py-1.5 border font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                        adminSubTab === 'navigation'
+                          ? 'bg-black text-white border-black shadow-[2px_2px_0px_rgba(0,0,0,1)]'
+                          : 'bg-white text-black border-neutral-300 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <span>🧭</span>
+                      <span>{lang === 'en' ? 'Navbar Layout' : '导航栏双语与排序配置'}</span>
+                    </button>
+                    <button
+                      onClick={() => setAdminSubTab('notes_meta')}
+                      className={`px-3 py-1.5 border font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                        adminSubTab === 'notes_meta'
+                          ? 'bg-black text-white border-black shadow-[2px_2px_0px_rgba(0,0,0,1)]'
+                          : 'bg-white text-black border-neutral-300 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <span>📰</span>
+                      <span>{lang === 'en' ? 'Notes Custom' : '专栏文案配置'}</span>
+                    </button>
+                    <button
+                      onClick={() => setAdminSubTab('playlist_mgr')}
+                      className={`px-3 py-1.5 border font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                        adminSubTab === 'playlist_mgr'
+                          ? 'bg-black text-white border-black shadow-[2px_2px_0px_rgba(0,0,0,1)]'
+                          : 'bg-white text-black border-neutral-300 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <span>🎵</span>
+                      <span>{lang === 'en' ? 'Playbox Music' : '上传歌曲/播放列表'}</span>
                     </button>
                   </div>
 
@@ -2520,17 +2743,566 @@ export default function App() {
                           </div>
                         </div>
 
+                        {/* Title Customize for Contact Title and Skills Title */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-dashed">
+                          <div className="space-y-2">
+                            <h4 className="font-bold uppercase text-[10px] text-zinc-800">☎️ Contact Block Section Header</h4>
+                            <div className="space-y-1">
+                              <label className="text-[9px] uppercase text-neutral-400 font-bold block">Contact Channels Title (English)</label>
+                              <input 
+                                type="text"
+                                value={aboutContactTitleEn}
+                                onChange={(e) => setAboutContactTitleEn(e.target.value)}
+                                className="w-full border border-black p-2 text-xs bg-white outline-none font-bold"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] uppercase text-neutral-400 font-bold block">中枢通道标题 (中文)</label>
+                              <input 
+                                type="text"
+                                value={aboutContactTitleZh}
+                                onChange={(e) => setAboutContactTitleZh(e.target.value)}
+                                className="w-full border border-black p-2 text-xs bg-white outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <h4 className="font-bold uppercase text-[10px] text-zinc-800">🛠️ Skills List Block Header</h4>
+                            <div className="space-y-1">
+                              <label className="text-[9px] uppercase text-neutral-400 font-bold block">Skills Title (English)</label>
+                              <input 
+                                type="text"
+                                value={aboutSkillsTitleEn}
+                                onChange={(e) => setAboutSkillsTitleEn(e.target.value)}
+                                className="w-full border border-black p-2 text-xs bg-white outline-none font-bold"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] uppercase text-neutral-400 font-bold block">兵器量仪标题 (中文)</label>
+                              <input 
+                                type="text"
+                                value={aboutSkillsTitleZh}
+                                onChange={(e) => setAboutSkillsTitleZh(e.target.value)}
+                                className="w-full border border-black p-2 text-xs bg-white outline-none"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Skills List content split by newline */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-dashed">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">Bilingual Skills List (English - Newline Split)</label>
+                            <textarea 
+                              rows={5}
+                              value={aboutSkillsListEn}
+                              onChange={(e) => setAboutSkillsListEn(e.target.value)}
+                              placeholder="Type one skill per line..."
+                              className="w-full border border-black p-2.5 text-xs bg-white outline-none font-mono"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">实干兵器清单 (中文 - 换行分隔)</label>
+                            <textarea 
+                              rows={5}
+                              value={aboutSkillsListZh}
+                              onChange={(e) => setAboutSkillsListZh(e.target.value)}
+                              placeholder="每行输入一项兵器技能..."
+                              className="w-full border border-black p-2.5 text-xs bg-white outline-none font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Avatar Hover Text Configuration */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-dashed">
+                          <div className="col-span-full">
+                            <h4 className="font-bold uppercase text-[10px] text-zinc-800">👤 Avatar Hover Popup Text (头像悬浮弹出框文本自定义在 settings 选项)</h4>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400 block">Hover Popup Left Status text (English/Default)</label>
+                            <input 
+                              type="text"
+                              value={avatarHoverLeft}
+                              onChange={(e) => setAvatarHoverLeft(e.target.value)}
+                              className="w-full border border-black p-2 text-xs bg-white outline-none font-bold"
+                              placeholder="W. LU AVATAR"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400 block">Hover Popup Right Coordination text (English/Default)</label>
+                            <input 
+                              type="text"
+                              value={avatarHoverRight}
+                              onChange={(e) => setAvatarHoverRight(e.target.value)}
+                              className="w-full border border-black p-2 text-xs bg-white outline-none"
+                              placeholder="COORD // GZ"
+                            />
+                          </div>
+                        </div>
+
                         <div className="flex justify-end pt-2 border-t">
                           <button
                             type="submit"
                             className="px-5 py-2.5 bg-black text-white hover:bg-neutral-850 font-bold uppercase tracking-wider text-xs shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-y-0.5 border-2 border-black cursor-pointer flex items-center gap-1"
                           >
                             <Check className="w-4 h-4 text-white" />
-                            <span>✓ SAVE BIOGRAPHY CONFIGURATIONS</span>
+                            <span>✓ SAVE PERSONAL CONFIGURATIONS</span>
                           </button>
                         </div>
                       </div>
                     </form>
+                  )}
+
+                  {adminSubTab === 'navigation' && (
+                    <div className="space-y-6 animate-fade-in font-mono text-xs">
+                      <div className="border border-black p-6 bg-white space-y-6 shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded">
+                        <div className="flex justify-between items-center border-b border-black pb-2">
+                          <h3 className="font-serif text-base font-black uppercase text-black">🧭 Right Navbar Titles & Custom Sequence</h3>
+                          <span className="text-[8px] bg-neutral-100 border text-neutral-500 px-1 py-0.5">NAVIGATION</span>
+                        </div>
+
+                        <span className="text-zinc-500 block leading-relaxed text-[11px]">
+                          * Change labels below to rename how tabs display on the right fixed dock. Change their ordering instantly using the Up / Down controls.
+                        </span>
+
+                        <div className="space-y-3">
+                          {customNavItems.map((item, index) => (
+                            <div key={item.id} className="border border-black p-3 bg-neutral-50 flex items-center justify-between gap-4">
+                              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="flex items-center gap-2 font-bold text-black uppercase">
+                                  <span className="text-neutral-400">#{index+1} ID:</span> {item.id}
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[8px] block font-bold text-neutral-400">LABEL (ENGLISH)</label>
+                                  <input 
+                                    type="text"
+                                    value={item.label_en}
+                                    onChange={(e) => {
+                                      const updated = [...customNavItems];
+                                      updated[index].label_en = e.target.value;
+                                      setCustomNavItems(updated);
+                                    }}
+                                    className="w-full border border-black p-1 text-xs bg-white text-black outline-none font-bold"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[8px] block font-bold text-neutral-400">标签标称 (中文)</label>
+                                  <input 
+                                    type="text"
+                                    value={item.label_zh}
+                                    onChange={(e) => {
+                                      const updated = [...customNavItems];
+                                      updated[index].label_zh = e.target.value;
+                                      setCustomNavItems(updated);
+                                    }}
+                                    className="w-full border border-black p-1 text-xs bg-white text-black outline-none"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex gap-1.5 self-end md:self-center shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => {
+                                    const nextList = [...customNavItems];
+                                    const temp = nextList[index];
+                                    nextList[index] = nextList[index - 1];
+                                    nextList[index - 1] = temp;
+                                    setCustomNavItems(nextList);
+                                    localStorage.setItem('custom_nav_items', JSON.stringify(nextList));
+                                  }}
+                                  className="px-2 py-1 border border-black text-xs font-bold hover:bg-black hover:text-white transition cursor-pointer disabled:opacity-25"
+                                >
+                                  ▲ UP
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === customNavItems.length - 1}
+                                  onClick={() => {
+                                    const nextList = [...customNavItems];
+                                    const temp = nextList[index];
+                                    nextList[index] = nextList[index + 1];
+                                    nextList[index + 1] = temp;
+                                    setCustomNavItems(nextList);
+                                    localStorage.setItem('custom_nav_items', JSON.stringify(nextList));
+                                  }}
+                                  className="px-2 py-1 border border-black text-xs font-bold hover:bg-black hover:text-white transition cursor-pointer disabled:opacity-25"
+                                >
+                                  ▼ DOWN
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              localStorage.setItem('custom_nav_items', JSON.stringify(customNavItems));
+                              alert(lang === 'en' ? 'Navbar order and bilingual titles saved successfully!' : '导航栏双语标题与排布物理序列已保存成功！');
+                            }}
+                            className="px-5 py-2.5 bg-black text-white hover:bg-neutral-850 font-bold uppercase tracking-wider text-xs shadow-[3px_3px_0px_rgba(0,0,0,1)] border-2 border-black cursor-pointer flex items-center gap-1"
+                          >
+                            <Check className="w-4 h-4 text-white" />
+                            <span>✓ APPLY & SAVE NAV LAYOUT</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {adminSubTab === 'notes_meta' && (
+                    <div className="space-y-6 animate-fade-in font-mono text-xs">
+                      <div className="border border-black p-6 bg-white space-y-6 shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded">
+                        <div className="flex justify-between items-center border-b border-black pb-2">
+                          <h3 className="font-serif text-base font-black uppercase text-black">📰 Notes Section Titles & Button Labels Customizer</h3>
+                          <span className="text-[8px] bg-neutral-100 border text-neutral-500 px-1 py-0.5">NOTES_LABELS</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">Notes Top Subtitle (English)</label>
+                            <input 
+                              type="text"
+                              value={noteTopSubtitleEn}
+                              onChange={(e) => {
+                                setNoteTopSubtitleEn(e.target.value);
+                                localStorage.setItem('note_top_subtitle_en', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">最上方副标栏 (中文)</label>
+                            <input 
+                              type="text"
+                              value={noteTopSubtitleZh}
+                              onChange={(e) => {
+                                setNoteTopSubtitleZh(e.target.value);
+                                localStorage.setItem('note_top_subtitle_zh', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">Notes Main Section Title (English)</label>
+                            <input 
+                              type="text"
+                              value={noteTopTitleEn}
+                              onChange={(e) => {
+                                setNoteTopTitleEn(e.target.value);
+                                localStorage.setItem('note_top_title_en', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">研读标文主标题 (中文)</label>
+                            <input 
+                              type="text"
+                              value={noteTopTitleZh}
+                              onChange={(e) => {
+                                setNoteTopTitleZh(e.target.value);
+                                localStorage.setItem('note_top_title_zh', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">"Read Insights" button label (English)</label>
+                            <input 
+                              type="text"
+                              value={noteBtnReadEn}
+                              onChange={(e) => {
+                                setNoteBtnReadEn(e.target.value);
+                                localStorage.setItem('note_btn_read_en', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">“研读解密”按钮文本 (中文)</label>
+                            <input 
+                              type="text"
+                              value={noteBtnReadZh}
+                              onChange={(e) => {
+                                setNoteBtnReadZh(e.target.value);
+                                localStorage.setItem('note_btn_read_zh', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">"Editorial Insights Bulletin" panel title (English)</label>
+                            <input 
+                              type="text"
+                              value={noteTitleInsightsEn}
+                              onChange={(e) => {
+                                setNoteTitleInsightsEn(e.target.value);
+                                localStorage.setItem('note_title_insights_en', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">“研读主干内容洞察”板块标头 (中文)</label>
+                            <input 
+                              type="text"
+                              value={noteTitleInsightsZh}
+                              onChange={(e) => {
+                                setNoteTitleInsightsZh(e.target.value);
+                                localStorage.setItem('note_title_insights_zh', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">"Launch Original Interface" button label (English)</label>
+                            <input 
+                              type="text"
+                              value={noteBtnLaunchEn}
+                              onChange={(e) => {
+                                setNoteBtnLaunchEn(e.target.value);
+                                localStorage.setItem('note_btn_launch_en', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">“进入模拟原文链道”按钮文本 (中文)</label>
+                            <input 
+                              type="text"
+                              value={noteBtnLaunchZh}
+                              onChange={(e) => {
+                                setNoteBtnLaunchZh(e.target.value);
+                                localStorage.setItem('note_btn_launch_zh', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">"Publish New Article" trigger copy (English)</label>
+                            <input 
+                              type="text"
+                              value={noteBtnPublishEn}
+                              onChange={(e) => {
+                                setNoteBtnPublishEn(e.target.value);
+                                localStorage.setItem('note_btn_publish_en', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400">“发表新专栏文章”按钮文本 (中文)</label>
+                            <input 
+                              type="text"
+                              value={noteBtnPublishZh}
+                              onChange={(e) => {
+                                setNoteBtnPublishZh(e.target.value);
+                                localStorage.setItem('note_btn_publish_zh', e.target.value);
+                              }}
+                              className="w-full border border-black p-2 bg-white text-xs outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t font-bold">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              alert(lang === 'en' ? 'Bilingual labels updated successfully!' : '专栏文案及标号内容保存成功！');
+                            }}
+                            className="px-5 py-2.5 bg-black text-white hover:bg-neutral-850 font-bold uppercase tracking-wider text-xs shadow-[3px_3px_0px_rgba(0,0,0,1)] border-2 border-black cursor-pointer flex items-center gap-1"
+                          >
+                            <Check className="w-4 h-4 text-white" />
+                            <span>✓ SAVE NOTES COPIES</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {adminSubTab === 'playlist_mgr' && (
+                    <div className="space-y-6 animate-fade-in font-mono text-xs">
+                      <div className="border border-black p-6 bg-white space-y-6 shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded">
+                        <div className="flex justify-between items-center border-b border-black pb-2">
+                          <h3 className="font-serif text-base font-black uppercase text-black">🎵 Sound System & Playlist Tracks Manager</h3>
+                          <span className="text-[8px] bg-neutral-100 border text-neutral-500 px-1 py-0.5">PLAYLIST_MANAGER</span>
+                        </div>
+
+                        <span className="text-zinc-500 block leading-relaxed text-[11px]">
+                          * Drag & Drop audio files (.mp3, .wav, or .ogg) or select a file manually to upload songs, which populate and autoplay in the high-fidelity sound playlist at the top of the viewport!
+                        </span>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {/* Left Column: Drag & Drop Area */}
+                          <div className="md:col-span-1 space-y-3">
+                            <label className="text-[9px] uppercase font-bold text-neutral-400 block">Drag or Upload Audio / 拖拽或上传曲目</label>
+                            
+                            <div
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const file = e.dataTransfer.files?.[0];
+                                if (file && file.type.startsWith('audio/')) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const base64 = event.target?.result as string;
+                                    const originalTitle = file.name.replace(/\.[^/.]+$/, "");
+                                    const artistInput = prompt(lang === 'en' ? "Please enter Artist Name:" : "请输入表演艺术家/合成器名称:") || "Resident Synth";
+                                    const finalTitle = prompt(lang === 'en' ? "Please confirm Song Title:" : "请确认歌曲名称:", originalTitle) || originalTitle;
+                                    
+                                    const newTrack = {
+                                      id: `track-custom-${Date.now()}`,
+                                      title: finalTitle,
+                                      artist: artistInput,
+                                      fileUrl: base64,
+                                      duration: '03:15'
+                                    };
+                                    const updated = [newTrack, ...customTracks];
+                                    setCustomTracks(updated);
+                                    localStorage.setItem('playlist_tracks', JSON.stringify(updated));
+                                    window.dispatchEvent(new Event('playlist-updated'));
+                                    alert(lang === 'en' ? 'Track uploaded and selected for default autoplay!' : '全新声轨曲目已成功加载并被设置为系统首选自动播放！');
+                                  };
+                                  reader.readAsDataURL(file);
+                                } else {
+                                  alert(lang === 'en' ? 'Please upload standard audio files.' : '请上传标准音频格式曲目（如 MP3, WAV 等）');
+                                }
+                              }}
+                              onClick={() => {
+                                document.getElementById('music-track-picker-input')?.click();
+                              }}
+                              className="border-2 border-dashed border-neutral-300 hover:border-black p-6 rounded bg-neutral-50 flex flex-col justify-center items-center text-center cursor-pointer transition-colors aspect-video"
+                            >
+                              <input 
+                                type="file" 
+                                id="music-track-picker-input" 
+                                accept="audio/*" 
+                                className="hidden" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      const base64 = event.target?.result as string;
+                                      const originalTitle = file.name.replace(/\.[^/.]+$/, "");
+                                      const artistInput = prompt(lang === 'en' ? "Please enter Artist Name:" : "请输入表演艺术家/合成器名称:") || "Resident Synth";
+                                      const finalTitle = prompt(lang === 'en' ? "Please confirm Song Title:" : "请确认歌曲名称:", originalTitle) || originalTitle;
+                                      
+                                      const newTrack = {
+                                        id: `track-custom-${Date.now()}`,
+                                        title: finalTitle,
+                                        artist: artistInput,
+                                        fileUrl: base64,
+                                        duration: '03:15'
+                                      };
+                                      const updated = [newTrack, ...customTracks];
+                                      setCustomTracks(updated);
+                                      localStorage.setItem('playlist_tracks', JSON.stringify(updated));
+                                      window.dispatchEvent(new Event('playlist-updated'));
+                                      alert(lang === 'en' ? 'Track uploaded and selected for default autoplay!' : '全新声轨曲目已成功加载并被设置为系统首选自动播放！');
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                              <Upload className="w-8 h-8 text-neutral-400 mb-2" />
+                              <span className="font-bold text-[10px] text-zinc-700">
+                                {lang === 'en' ? 'DRAG FILE HERE OR CLICK TO UPLOAD' : '拖入音频文件或点击浏览本地上传'}
+                              </span>
+                              <span className="text-[8px] text-zinc-400 mt-1">.mp3, .wav, .ogg Supported</span>
+                            </div>
+                          </div>
+
+                          {/* Right Column: Track queue List */}
+                          <div className="md:col-span-2 space-y-3">
+                            <div className="flex justify-between items-center">
+                              <label className="text-[9px] uppercase font-bold text-neutral-400 block">Current Sound Playlist ({customTracks.length} tracks)</label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(lang === 'en' ? "Restore tracks to default set?" : "确定要恢复到默认出厂配置声轨吗？")) {
+                                    setCustomTracks(TRACKS);
+                                    localStorage.setItem('playlist_tracks', JSON.stringify(TRACKS));
+                                    window.dispatchEvent(new Event('playlist-updated'));
+                                  }
+                                }}
+                                className="text-red-500 hover:underline text-[9px] font-bold"
+                              >
+                                [ RESTORE DEFAULTS / 恢复默认 ]
+                              </button>
+                            </div>
+
+                            <div className="border border-black rounded divide-y divide-neutral-200 max-h-[220px] overflow-y-auto bg-neutral-50 p-1 space-y-1">
+                              {customTracks.map((track, idx) => {
+                                const isDefault = track.id.startsWith('track-') && !track.id.startsWith('track-custom-');
+                                return (
+                                  <div key={track.id} className="flex justify-between items-center p-2 bg-white border border-neutral-100 hover:border-black transition rounded-xs">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          window.dispatchEvent(new CustomEvent('play-track-command', { detail: { id: track.id } }));
+                                        }}
+                                        className="w-5 h-5 flex items-center justify-center bg-zinc-100 hover:bg-black text-black hover:text-white border border-black/10 rounded transition cursor-pointer shrink-0 font-bold select-none text-[8.5px]"
+                                        title="Play track / 播放音乐"
+                                      >
+                                        ▶
+                                      </button>
+                                      
+                                      <div className="min-w-0">
+                                        <div className="font-bold text-[10px] text-black truncate flex items-center gap-1.5">
+                                          <span>{idx + 1}.</span>
+                                          <span className="truncate">{track.title}</span>
+                                          {!isDefault && (
+                                            <span className="text-[7.5px] px-1 bg-zinc-200 text-neutral-700 font-extrabold rounded-xs scale-90">USER</span>
+                                          )}
+                                        </div>
+                                        <div className="text-[9px] text-neutral-400 truncate mt-0.5">{track.artist}</div>
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (confirm(lang === 'en' ? `Remove track "${track.title}"?` : `确定要删除 "${track.title}" 曲目吗？`)) {
+                                          const filtered = customTracks.filter(t => t.id !== track.id);
+                                          setCustomTracks(filtered);
+                                          localStorage.setItem('playlist_tracks', JSON.stringify(filtered));
+                                          window.dispatchEvent(new Event('playlist-updated'));
+                                        }
+                                      }}
+                                      className="text-red-550 hover:bg-red-50 p-1.5 rounded transition cursor-pointer text-[10px]"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -2557,7 +3329,7 @@ export default function App() {
         </main>
 
         {/* 3. RIGHT FIXED DOCK NAVIGATION BAR */}
-        <Navbar activeTab={activeTab} setActiveTab={handleTabChange} lang={lang} setLang={setLang} />
+        <Navbar activeTab={activeTab} setActiveTab={handleTabChange} lang={lang} setLang={setLang} customNavItems={customNavItems} />
       </div>
 
       {/* DRAGGABLE FLOATING ACTION CAPTURE BALL (FAB) FOR REGISTERED ADMINISTRATORS ONLY */}

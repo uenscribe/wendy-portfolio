@@ -13,9 +13,38 @@ interface NoteSectionProps {
   lang?: 'en' | 'zh';
   isAdminLoggedIn?: boolean;
   onSaveNotes?: (notes: Note[]) => void;
+  noteTopSubtitleEn?: string;
+  noteTopSubtitleZh?: string;
+  noteTopTitleEn?: string;
+  noteTopTitleZh?: string;
+  noteBtnReadEn?: string;
+  noteBtnReadZh?: string;
+  noteTitleInsightsEn?: string;
+  noteTitleInsightsZh?: string;
+  noteBtnLaunchEn?: string;
+  noteBtnLaunchZh?: string;
+  noteBtnPublishEn?: string;
+  noteBtnPublishZh?: string;
 }
 
-export default function NoteSection({ notes, lang = 'en', isAdminLoggedIn = false, onSaveNotes }: NoteSectionProps) {
+export default function NoteSection({
+  notes,
+  lang = 'en',
+  isAdminLoggedIn = false,
+  onSaveNotes,
+  noteTopSubtitleEn = 'Reflections / Articles //',
+  noteTopSubtitleZh = '视窗文章与社群反思 //',
+  noteTopTitleEn = 'EDITORIAL ARCHIVE',
+  noteTopTitleZh = '学者专栏与纪实档案',
+  noteBtnReadEn = 'READ INSIGHTS',
+  noteBtnReadZh = '研读解密',
+  noteTitleInsightsEn = 'EDITORIAL INSIGHT MAP',
+  noteTitleInsightsZh = '研读主干与内容洞察',
+  noteBtnLaunchEn = 'LAUNCH ORIGINAL INTERFACE',
+  noteBtnLaunchZh = '进入模拟/原文链道',
+  noteBtnPublishEn = 'PUBLISH NEW ARTICLE',
+  noteBtnPublishZh = '发表新专栏文章'
+}: NoteSectionProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeNote, setActiveNote] = useState<Note | null>(null);
   const [useIframeSimulator, setUseIframeSimulator] = useState(false);
@@ -152,10 +181,10 @@ export default function NoteSection({ notes, lang = 'en', isAdminLoggedIn = fals
       <div className="flex flex-col md:flex-row md:items-end justify-between border-b-2 border-black pb-4 gap-4">
         <div>
           <div className="font-mono text-xs uppercase tracking-widest text-neutral-500 font-black mb-1">
-            {lang === 'en' ? 'Reflections / Articles //' : '视窗文章与社群反思 //'}
+            {lang === 'en' ? noteTopSubtitleEn : noteTopSubtitleZh}
           </div>
           <h1 className="font-serif text-3xl font-bold tracking-tight text-neutral-950 uppercase font-black">
-            {t.notesTitle}
+            {lang === 'en' ? noteTopTitleEn : noteTopTitleZh}
           </h1>
         </div>
 
@@ -167,7 +196,7 @@ export default function NoteSection({ notes, lang = 'en', isAdminLoggedIn = fals
             title="Publish New Note"
           >
             <Plus className="w-4 h-4" />
-            <span>{lang === 'en' ? 'PUBLISH NEW ARTICLE' : '发表新专栏文章'}</span>
+            <span>{lang === 'en' ? noteBtnPublishEn : noteBtnPublishZh}</span>
           </button>
         )}
       </div>
@@ -275,7 +304,7 @@ export default function NoteSection({ notes, lang = 'en', isAdminLoggedIn = fals
                 </div>
               ) : (
                 <span className="font-mono text-[9px] uppercase tracking-wider font-extrabold text-neutral-900 group-hover:underline flex items-center gap-1">
-                  {lang === 'en' ? 'READ INSIGHTS' : '研读解密'} <ArrowUpRight className="w-3.5 h-3.5" />
+                  {lang === 'en' ? noteBtnReadEn : noteBtnReadZh} <ArrowUpRight className="w-3.5 h-3.5" />
                 </span>
               )}
             </div>
@@ -360,7 +389,7 @@ export default function NoteSection({ notes, lang = 'en', isAdminLoggedIn = fals
                   <div className="space-y-4">
                     <h4 className="font-mono text-xs uppercase tracking-wider text-black font-black flex items-center gap-1.5 select-none">
                       <BookOpen className="w-4 h-4 text-black" />
-                      {t.editorialInsightMap}
+                      {lang === 'en' ? noteTitleInsightsEn : noteTitleInsightsZh}
                     </h4>
                     <ul className="space-y-3 font-serif text-sm text-neutral-800">
                       {activeNote.insights.map((insight, idx) => (
@@ -386,7 +415,7 @@ export default function NoteSection({ notes, lang = 'en', isAdminLoggedIn = fals
                       onClick={() => setUseIframeSimulator(true)}
                       className="bg-black text-white border border-black hover:bg-neutral-800 font-mono text-[10px] font-bold uppercase py-2 px-3 flex items-center gap-1 cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] transition-all"
                     >
-                      <span>{t.launchInterface}</span>
+                      <span>{lang === 'en' ? noteBtnLaunchEn : noteBtnLaunchZh}</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
                     </button>
                   </div>

@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Project, WorkCategory, CMSStatus, CMSVisibility } from '../types';
 import { ArrowUpRight, Search, FileText, Calendar, ShieldAlert, Edit, Trash2, Plus, Check, EyeOff, Pin, Upload, Video, Play, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { UI_TRANSLATIONS } from '../utils/translations';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface WorksSectionProps {
   projects: Project[];
@@ -70,6 +71,22 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeGalleryIndex !== null && activeProject?.gallery) {
+        if (e.key === 'ArrowLeft') {
+          setActiveGalleryIndex(prev => prev! > 0 ? prev! - 1 : activeProject.gallery!.length - 1);
+        } else if (e.key === 'ArrowRight') {
+          setActiveGalleryIndex(prev => prev! < activeProject.gallery!.length - 1 ? prev! + 1 : 0);
+        } else if (e.key === 'Escape') {
+          setActiveGalleryIndex(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeGalleryIndex, activeProject]);
 
   const categories: WorkCategory[] = ['Storytelling', 'Campaigns', 'Design & Creation', 'Growth & Community', 'About'];
 
@@ -638,13 +655,18 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
       )}
 
       {/* Project Details Modal Slider Drawer */}
-      {activeProject && !editingProj && !isAddingNew && (
-        <div id="project-detail-slider-portal" className="fixed inset-0 bg-black/60 z-50 flex justify-end backdrop-blur-xs select-none">
-          {/* Overlay click back */}
-          <div className="absolute inset-0 -z-10" onClick={() => setActiveProject(null)} />
-
-          <div className="w-full max-w-xl bg-white h-full border-l-2 border-black overflow-y-auto flex flex-col pt-12 pb-16 relative">
-            <div className="border-b-2 border-black p-6 flex justify-between items-center bg-neutral-50">
+      {/* Project Details Full Screen Overlay Slider Board */}
+      <AnimatePresence>
+        {activeProject && !editingProj && !isAddingNew && (
+          <motion.div
+            id="project-detail-slider-portal"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 26, stiffness: 210 }}
+            className="fixed left-0 md:left-28 right-0 top-0 bottom-0 bg-white z-50 border-l border-neutral-300 overflow-y-auto flex flex-col pt-12 md:pt-6 pb-16 select-none"
+          >
+            <div className="border-b-2 border-black p-6 flex justify-between items-center bg-neutral-50 shrink-0">
               <div className="font-mono text-xs uppercase tracking-widest font-black text-black">
                 {t.archiveRef}: {activeProject.id}
               </div>
@@ -656,7 +678,7 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
               </button>
             </div>
 
-            <div className="p-6 space-y-6 flex-1 select-text">
+            <div className="max-w-4xl mx-auto w-full p-6 space-y-6 flex-1 select-text">
               {/* Media Hub: HTML5 video prioritize or cover layout */}
               {activeProject.videoUrl ? (
                 <div className="border-2 border-black bg-black shadow-[4px_4px_0px_rgba(0,0,0,1)] overflow-hidden aspect-video relative group">
@@ -680,42 +702,42 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
                 />
               )}
 
-              <div className="space-y-2">
-                <span className="px-2 py-0.5 bg-neutral-100 border border-neutral-300 rounded font-mono text-[9px] font-bold text-black uppercase">
+              <div className="space-y-4 pt-2">
+                <span className="px-2 py-1 bg-black text-white rounded-xs font-mono text-[9px] font-bold uppercase">
                   {categoryLabels[activeProject.category] || activeProject.category}
                 </span>
-                <h2 className="font-serif text-2xl font-black text-neutral-950 uppercase pt-2 leading-tight">
+                <h2 className="font-serif text-3xl font-black text-neutral-950 uppercase pt-2 leading-tight">
                   {lang === 'zh' ? (activeProject.title_zh || activeProject.title) : activeProject.title}
                 </h2>
               </div>
 
               {/* Metadata list */}
-              <div className="grid grid-cols-2 gap-4 border-y border-neutral-200 py-4 font-mono text-xs">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 border-y border-neutral-200 py-6 font-mono text-xs">
                 <div>
-                  <span className="text-neutral-400 uppercase">{t.client}</span>
-                  <div className="font-bold text-black mt-0.5">
+                  <span className="text-neutral-400 uppercase text-[9px] tracking-wider">{t.client}</span>
+                  <div className="font-bold text-black mt-1 text-sm">
                     {lang === 'zh' 
                       ? (activeProject.client_zh || activeProject.client || '独立研究与实践')
                       : (activeProject.client || 'Personal Project')}
                   </div>
                 </div>
                 <div>
-                  <span className="text-neutral-400 uppercase">{t.role}</span>
-                  <div className="font-bold text-black mt-0.5">
+                  <span className="text-neutral-400 uppercase text-[9px] tracking-wider">{t.role}</span>
+                  <div className="font-bold text-black mt-1 text-sm">
                     {lang === 'zh'
                       ? (activeProject.role_zh || activeProject.role || '独立创作者')
                       : (activeProject.role || 'Sole Creator')}
                   </div>
                 </div>
                 <div>
-                  <span className="text-neutral-400 uppercase">{t.timelineCode}</span>
-                  <div className="font-bold text-black mt-0.5">{activeProject.date}</div>
+                  <span className="text-neutral-400 uppercase text-[9px] tracking-wider">{t.timelineCode}</span>
+                  <div className="font-bold text-black mt-1 text-sm">{activeProject.date}</div>
                 </div>
                 <div>
-                  <span className="text-neutral-400 uppercase">{t.scopeAreas}</span>
-                  <div className="text-black flex flex-wrap gap-1 mt-1">
+                  <span className="text-neutral-400 uppercase text-[9px] tracking-wider">{t.scopeAreas}</span>
+                  <div className="text-black flex flex-wrap gap-1 mt-2">
                     {activeProject.tags.map(tag => (
-                      <span key={tag} className="px-1.5 border border-neutral-300 py-0.2 rounded text-[9px]">{tag}</span>
+                      <span key={tag} className="px-1.5 border border-neutral-300 py-0.2 rounded text-[8.5px] font-mono">{tag}</span>
                     ))}
                   </div>
                 </div>
@@ -724,10 +746,10 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
               {/* Narrative block */}
               <div className="space-y-3 font-serif">
                 <h4 className="font-mono text-xs font-black uppercase text-black tracking-wider flex items-center gap-1.5 border-b pb-1">
-                  <FileText className="w-3.5 h-3.5 text-neutral-500" />
+                  <FileText className="w-3.5 h-3.5 text-neutral-550" />
                   {t.projectBrief}
                 </h4>
-                <p className="text-sm text-neutral-800 leading-relaxed whitespace-pre-line">
+                <p className="text-sm text-neutral-800 leading-relaxed whitespace-pre-line text-justify md:text-[15px]">
                   {lang === 'zh' ? (activeProject.description_zh || activeProject.description) : activeProject.description}
                 </p>
               </div>
@@ -735,21 +757,21 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
               {/* Achievements / steps */}
               <div className="space-y-3 font-serif">
                 <h4 className="font-mono text-xs font-black uppercase text-black tracking-wider flex items-center gap-1.5 border-b pb-1">
-                  <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                  <Calendar className="w-3.5 h-3.5 text-neutral-550" />
                   {t.keyMilestones}
                 </h4>
                 <ul className="space-y-2 text-sm text-neutral-700">
                   {lang === 'zh' && activeProject.details_zh ? (
                     activeProject.details_zh.map((detail, idx) => (
-                      <li key={idx} className="flex gap-2">
-                        <span className="font-mono text-xs text-neutral-400">{idx + 1}.</span>
+                      <li key={idx} className="flex gap-2.5 items-start">
+                        <span className="font-mono text-xs text-neutral-400 bg-neutral-50 px-1 border mt-0.5">0{idx + 1}.</span>
                         <span className="leading-relaxed font-sans">{detail}</span>
                       </li>
                     ))
                   ) : (
                     activeProject.details.map((detail, idx) => (
-                      <li key={idx} className="flex gap-2">
-                        <span className="font-mono text-xs text-neutral-400">{idx + 1}.</span>
+                      <li key={idx} className="flex gap-2.5 items-start">
+                        <span className="font-mono text-xs text-neutral-400 bg-neutral-50 px-1 border mt-0.5">0{idx + 1}.</span>
                         <span className="leading-relaxed">{detail}</span>
                       </li>
                     ))
@@ -759,24 +781,24 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
 
               {/* Multiple Image Gallery for "Design & Creation" or projects with custom galleries */}
               {activeProject.gallery && activeProject.gallery.length > 0 && (
-                <div className="space-y-3 font-serif pt-6 border-t border-dashed border-neutral-200">
+                <div className="space-y-4 font-serif pt-8 border-t border-dashed border-neutral-250">
                   <h4 className="font-mono text-xs font-black uppercase text-black tracking-wider flex items-center gap-1.5">
-                    🎨 {lang === 'en' ? 'Project Image Gallery' : '创作视觉画卡'} ({activeProject.gallery.length})
+                    🎨 {lang === 'en' ? 'Project Image Gallery (Click to browse and slide with Arrow keys)' : '创作视觉画卡 (点击画幅启动双向按键/鼠标预览切换)'} ({activeProject.gallery.length})
                   </h4>
-                  <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                     {activeProject.gallery.map((img, idx) => (
                       <div
                         key={idx}
                         onClick={() => setActiveGalleryIndex(idx)}
-                        className="border border-black bg-white cursor-pointer overflow-hidden aspect-video relative group shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                        className="border border-black bg-white cursor-pointer overflow-hidden aspect-video relative group shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-[5px_5px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all"
                       >
                         <img
                           src={img}
                           alt="Gallery item preview"
-                          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300 pointer-events-none"
+                          className="w-full h-full object-cover transition-all duration-300 pointer-events-none"
                         />
-                        <div className="absolute bottom-1 right-1 bg-black/80 text-white text-[8px] font-mono px-1 border border-white">
-                          {idx + 1}
+                        <div className="absolute bottom-1 right-1 bg-black text-white text-[8px] font-mono px-1 border border-white">
+                          0{idx + 1}
                         </div>
                       </div>
                     ))}
@@ -784,11 +806,11 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Lightbox Carousel System overlay */}
+      {/* Lightbox Carousel System overlay with original color preserved */}
       {activeGalleryIndex !== null && activeProject?.gallery && (
         <div className="fixed inset-0 bg-black/95 z-100 flex items-center justify-center p-4 select-none">
           {/* Overlay Click out */}
