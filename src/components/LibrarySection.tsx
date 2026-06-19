@@ -23,6 +23,18 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
   const [editingItem, setEditingItem] = useState<LibraryItem | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
 
+  // Details view state
+  const [detailedItem, setDetailedItem] = useState<LibraryItem | null>(null);
+
+  // Custom Canvas Cropper states
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [cropX, setCropX] = useState<number>(10);
+  const [cropY, setCropY] = useState<number>(10);
+  const [cropW, setCropW] = useState<number>(80);
+  const [cropH, setCropH] = useState<number>(80);
+  const [cropAspect, setCropAspect] = useState<'free' | '3:4' | '16:9' | '1:1'>('free');
+  const [onCropComplete, setOnCropComplete] = useState<((cropped: string) => void) | null>(null);
+
   // Form states
   const [formType, setFormType] = useState<'book' | 'movie' | 'music'>('book');
   const [formTitle, setFormTitle] = useState('');
@@ -39,6 +51,66 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
 
   // Drag-and-drop state on cards
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+
+  // Helper crop calculator keeping locked ratios live
+  const adjustCropBox = (x: number, y: number, w: number, h: number, aspect: string) => {
+    let nextW = w;
+    let nextH = h;
+    if (aspect === '3:4') {
+      nextH = Math.min(100 - y, (w * 4) / 3);
+      if (y + nextH > 100) {
+        nextH = 100 - y;
+        nextW = (nextH * 3) / 4;
+      }
+    } else if (aspect === '16:9') {
+      nextH = Math.min(100 - y, (w * 9) / 16);
+      if (y + nextH > 100) {
+        nextH = 100 - y;
+        nextW = (nextH * 16) / 9;
+      }
+    } else if (aspect === '1:1') {
+      nextH = Math.min(100 - y, w);
+      if (y + nextH > 100) {
+        nextH = 100 - y;
+        nextW = nextH;
+      }
+    }
+    setCropX(Math.max(0, Math.min(100 - nextW, x)));
+    setCropY(Math.max(0, Math.min(100 - nextH, y)));
+    setCropW(nextW);
+    setCropH(nextH);
+  };
+
+  // Canvas processing crop execution
+  const executeCrop = () => {
+    if (!imageToCrop) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const sX = img.naturalWidth * (cropX / 100);
+      const sY = img.naturalHeight * (cropY / 100);
+      const sW = img.naturalWidth * (cropW / 100);
+      const sH = img.naturalHeight * (cropH / 100);
+
+      canvas.width = 600;
+      canvas.height = (sH / sW) * 600;
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, sX, sY, sW, sH, 0, 0, canvas.width, canvas.height);
+
+      const base64 = canvas.toDataURL('image/jpeg', 0.90);
+      if (onCropComplete) {
+        onCropComplete(base64);
+      }
+      setImageToCrop(null);
+    };
+    img.src = imageToCrop;
+  };
 
   // Directly handle drag and drop uploading for library items
   const handleDragOver = (e: React.DragEvent, itemId: string) => {
@@ -60,13 +132,21 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
         if (base64) {
-          const updated = items.map(item => {
-            if (item.id === itemId) {
-              return { ...item, coverImage: base64 };
-            }
-            return item;
+          setImageToCrop(base64);
+          setCropX(10);
+          setCropY(10);
+          setCropW(80);
+          setCropH(80);
+          setCropAspect('free');
+          setOnCropComplete(() => (croppedBase64: string) => {
+            const updated = items.map(item => {
+              if (item.id === itemId) {
+                return { ...item, coverImage: croppedBase64 };
+              }
+              return item;
+            });
+            onSaveItems?.(updated);
           });
-          onSaveItems?.(updated);
         }
       };
       reader.readAsDataURL(file);
@@ -80,13 +160,21 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
         if (base64) {
-          const updated = items.map(item => {
-            if (item.id === itemId) {
-              return { ...item, coverImage: base64 };
-            }
-            return item;
+          setImageToCrop(base64);
+          setCropX(10);
+          setCropY(10);
+          setCropW(80);
+          setCropH(80);
+          setCropAspect('free');
+          setOnCropComplete(() => (croppedBase64: string) => {
+            const updated = items.map(item => {
+              if (item.id === itemId) {
+                return { ...item, coverImage: croppedBase64 };
+              }
+              return item;
+            });
+            onSaveItems?.(updated);
           });
-          onSaveItems?.(updated);
         }
       };
       reader.readAsDataURL(file);
@@ -239,7 +327,8 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
   };
 
   return (
-    <div id="library-logs-wrapper" className="space-y-8">
+    <>
+      <div id="library-logs-wrapper" className="space-y-8">
       {/* Editorial Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between border-b-2 border-black pb-4 gap-4">
         <div>
@@ -314,7 +403,8 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
               onDragOver={(e) => handleDragOver(e, item.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, item.id)}
-              className="group border border-black bg-white flex flex-col justify-between p-5 relative shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[5px_5px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
+              onClick={() => setDetailedItem(item)}
+              className="group border border-black bg-white flex flex-col justify-between p-5 relative shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[5px_5px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden cursor-pointer select-none"
             >
               {/* Cover image at 40% opacity */}
               {item.coverImage && (
@@ -354,10 +444,32 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
                   
                   {/* Status Indicator */}
                   <div className="flex items-center gap-1 select-none">
-                    {item.pinned && (
-                      <span className="p-0.5 bg-black text-white border border-black" title="Pinned to Homepage">
-                        <Pin className="w-2.5 h-2.5" />
-                      </span>
+                    {isAdminLoggedIn ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const updated = items.map(it => {
+                            if (it.id === item.id) {
+                              return { ...it, pinned: !it.pinned };
+                            }
+                            return it;
+                          });
+                          onSaveItems?.(updated);
+                        }}
+                        className={`p-0.5 border cursor-pointer transition-colors ${
+                          item.pinned ? 'bg-black text-white border-black' : 'bg-white text-zinc-400 border-zinc-200 hover:text-black hover:border-black'
+                        }`}
+                        title={item.pinned ? (lang === 'en' ? 'Unpin from Top / 取消置顶' : '取消置顶') : (lang === 'en' ? 'Pin to Top / 置顶模块' : '置顶模块')}
+                      >
+                        <Pin className="w-3.5 h-3.5 p-[1px]" />
+                      </button>
+                    ) : (
+                      item.pinned && (
+                        <span className="p-0.5 bg-black text-white border border-black" title="Pinned to Homepage">
+                          <Pin className="w-2.5 h-2.5" />
+                        </span>
+                      )
                     )}
                     {item.status_cms === 'Draft' && (
                       <span className="px-1 text-[7px] bg-neutral-800 text-white font-mono uppercase font-bold border border-black">
@@ -697,5 +809,254 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
         </div>
       )}
     </div>
-  );
+
+    {/* 1. INTERACTIVE DESIGNER CROPPING MODAL */}
+    {imageToCrop && (
+      <div className="fixed inset-0 bg-black/85 z-55 flex items-center justify-center p-4 backdrop-blur-md">
+        <div className="bg-white border-2 border-black w-full max-w-xl p-6 space-y-4 shadow-[5px_5px_0px_rgba(0,0,0,1)] rounded-sm">
+          <div className="flex justify-between items-center border-b border-black pb-2">
+            <h3 className="font-serif text-sm font-black uppercase tracking-tight flex items-center gap-1.5">
+              <span>✂️</span>
+              <span>{lang === 'en' ? 'Adjust & Crop Cover Image / 封面微调裁剪' : '调整与裁剪书籍影音封面图'}</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setImageToCrop(null)}
+              className="text-[9px] font-mono font-bold bg-neutral-100 hover:bg-neutral-200 border border-black/20 px-2 py-0.5 rounded cursor-pointer"
+            >
+              [ SKIP CROP / 跳过 ]
+            </button>
+          </div>
+
+          <p className="text-[10px] text-zinc-500 font-mono leading-relaxed">
+            {lang === 'en' 
+              ? 'Locate focus viewport by sliding control handles. The selected cover aspect-ratio locks down seamlessly.' 
+              : '拖动滑块确定裁剪的焦点选区，可以使用以下宽高比预设，使文献封面更契合网格。'}
+          </p>
+
+          {/* Real-time high-fidelity bounding box overlay */}
+          <div className="relative border-4 border-black bg-stone-900 max-h-[350px] overflow-hidden flex items-center justify-center select-none aspect-video">
+            <img 
+              id="cropper-source-image-preview"
+              src={imageToCrop} 
+              alt="Source to Crop" 
+              className="max-h-[340px] max-w-full object-contain"
+            />
+            {/* Real-time high contrast visual boundary indicators */}
+            <div 
+              className="absolute border-2 border-[#fbbf24] border-dashed shadow-[0_0_0_9999px_rgba(0,0,0,0.65)] pointer-events-none"
+              style={{
+                left: `${cropX}%`,
+                top: `${cropY}%`,
+                width: `${cropW}%`,
+                height: `${cropH}%`,
+              }}
+            >
+              <div className="absolute top-1 left-1.5 bg-[#fbbf24] text-black text-[7px] font-mono font-bold leading-none px-1 py-0.5 rounded-sm">
+                CROP FOCUS VIEWPORT
+              </div>
+            </div>
+          </div>
+
+          {/* Preset Buttons */}
+          <div className="flex flex-col gap-1 pr-1">
+            <span className="text-[9px] text-neutral-400 font-bold block uppercase tracking-wider">// Crop Aspect Presets / 封面比例预设</span>
+            <div className="flex flex-wrap gap-1">
+              {[
+                { id: 'free', label: lang === 'en' ? 'Free Form (自由)' : '自由比例' },
+                { id: '3:4', label: lang === 'en' ? '3:4 Book (经典书影)' : '3:4 经典书封' },
+                { id: '16:9', label: lang === 'en' ? '16:9 Cinema (电影荧幕)' : '16:9 院线宽屏' },
+                { id: '1:1', label: lang === 'en' ? '1:1 Square (唱片盘面)' : '1:1 独立唱片' }
+              ].map(preset => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => {
+                    setCropAspect(preset.id as any);
+                    adjustCropBox(cropX, cropY, cropW, cropH, preset.id);
+                  }}
+                  className={`px-3 py-1 text-[9.5px] font-bold border transition cursor-pointer ${
+                    cropAspect === preset.id 
+                      ? 'bg-black text-white border-black' 
+                      : 'bg-white text-black border-zinc-200 hover:bg-neutral-50'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Coordinate Adjustment Sliders */}
+          <div className="grid grid-cols-2 gap-3 bg-neutral-50 p-2.5 border border-black/10 rounded">
+            <div className="space-y-0.5">
+              <span className="text-[9px] text-zinc-500 font-bold block">⬅ HORIZONTAL OFFSET / 水平偏量 (X)</span>
+              <input 
+                type="range" 
+                min="0" 
+                max={Math.max(0, 100 - cropW)} 
+                value={cropX} 
+                onChange={(e) => adjustCropBox(Number(e.target.value), cropY, cropW, cropH, cropAspect)}
+                className="w-full accent-black cursor-pointer"
+              />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[9px] text-zinc-500 font-bold block">⬆ VERTICAL OFFSET / 垂直偏量 (Y)</span>
+              <input 
+                type="range" 
+                min="0" 
+                max={Math.max(0, 100 - cropH)} 
+                value={cropY} 
+                onChange={(e) => adjustCropBox(cropX, Number(e.target.value), cropW, cropH, cropAspect)}
+                className="w-full accent-black cursor-pointer"
+              />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[9px] text-zinc-500 font-bold block">↔ VIEWPORT WIDTH / 选取宽度 (W)</span>
+              <input 
+                type="range" 
+                min="10" 
+                max={100 - cropX} 
+                value={cropW} 
+                onChange={(e) => adjustCropBox(cropX, cropY, Number(e.target.value), cropH, cropAspect)}
+                className="w-full accent-black cursor-pointer"
+              />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[9px] text-zinc-500 font-bold block">↕ VIEWPORT HEIGHT / 选取高度 (H)</span>
+              <input 
+                type="range" 
+                min="10" 
+                max={100 - cropY} 
+                value={cropH} 
+                disabled={cropAspect !== 'free'}
+                onChange={(e) => adjustCropBox(cropX, cropY, cropW, Number(e.target.value), cropAspect)}
+                className="w-full accent-black cursor-pointer disabled:opacity-50"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={executeCrop}
+              className="flex-1 bg-black text-white hover:bg-neutral-800 text-[11px] py-1.5 font-bold uppercase cursor-pointer border border-black shadow transition-all flex items-center justify-center gap-1.5"
+            >
+              <span>Apply & Crop / 裁剪并保存封面</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onCropComplete) {
+                  onCropComplete(imageToCrop);
+                }
+                setImageToCrop(null);
+              }}
+              className="bg-white text-black hover:bg-neutral-100 text-[11px] py-1.5 px-4 font-bold uppercase cursor-pointer border border-black transition-all"
+            >
+              {lang === 'en' ? 'Use Original / 使用原图' : '直接使用原图'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 2. RICH DETAIL VIEW MODAL - FOR READERS/GUESTS TO ENGAGE WITH MEMO REVIEWS */}
+    {detailedItem && (
+      <div 
+        className="fixed inset-0 bg-black/75 z-45 flex items-center justify-center p-4 backdrop-blur-xs" 
+        onClick={() => setDetailedItem(null)}
+      >
+        <div 
+          className="bg-[#fafaf6] border-2 border-black w-full max-w-2xl max-h-[90vh] overflow-y-auto p-0 shadow-[6px_6px_0px_rgba(0,0,0,1)] rounded-sm flex flex-col md:flex-row text-neutral-800" 
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Left cover strip */}
+          <div className="md:w-2/5 bg-neutral-900 min-h-[250px] relative flex items-center justify-center border-b-2 md:border-b-0 md:border-r-2 border-black overflow-hidden select-none">
+            {detailedItem.coverImage ? (
+              <img 
+                src={detailedItem.coverImage} 
+                alt={detailedItem.title} 
+                className="w-full h-full object-cover max-h-[380px]"
+              />
+            ) : (
+              <div className="text-center p-6 text-stone-500 font-mono text-[10px] space-y-2">
+                {detailedItem.type === 'book' ? <Book className="w-10 h-10 text-stone-600 mx-auto" /> : detailedItem.type === 'movie' ? <Film className="w-10 h-10 text-stone-600 mx-auto" /> : <Music className="w-10 h-10 text-stone-600 mx-auto" />}
+                <p className="uppercase font-bold tracking-widest leading-relaxed">No Graphic Cover</p>
+              </div>
+            )}
+            
+            {/* Side edge spine band simulation */}
+            <div 
+              className="absolute top-0 right-0 w-3.5 h-full border-l border-black"
+              style={{ backgroundColor: detailedItem.coverColor || '#171717' }}
+            />
+          </div>
+
+          {/* Right contents journal ledger */}
+          <div className="md:w-3/5 p-6 flex flex-col justify-between space-y-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center border-b border-black/10 pb-2">
+                <span className="flex items-center gap-1.5 font-mono text-[9px] text-neutral-500 font-extrabold uppercase tracking-wider">
+                  {detailedItem.type === 'book' ? <Book className="w-3.5 h-3.5" /> : detailedItem.type === 'movie' ? <Film className="w-3.5 h-3.5" /> : <Music className="w-3.5 h-3.5" />}
+                  {singleTypeLabels[detailedItem.type] || detailedItem.type}
+                </span>
+                
+                <span className={`px-2 py-0.5 border border-black font-mono text-[8px] font-bold uppercase rounded-xs ${
+                  detailedItem.status === 'Completed' ? 'bg-black text-white' : 'bg-neutral-50 text-neutral-600'
+                }`}>
+                  {statusLabels[detailedItem.status] || detailedItem.status}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <h2 className="font-serif text-2xl font-black text-black leading-tight tracking-tight">
+                  {detailedItem.title}
+                </h2>
+                <p className="font-mono text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest">
+                  {lang === 'en' ? `WRITTEN / AUTHORED BY : ${detailedItem.creator}` : `主创 / 著者署名 : ${detailedItem.creator}`}
+                </p>
+              </div>
+
+              {/* Rating stars display status */}
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-0.5 text-black">
+                  {[...Array(5)].map((_, index) => (
+                    <Star
+                      key={index}
+                      className={`w-3.5 h-3.5 ${
+                        index < detailedItem.rating ? 'fill-black text-black' : 'text-neutral-200'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="font-mono text-[9px] text-neutral-400 font-bold">({detailedItem.rating}.0 / 5.0)</span>
+              </div>
+
+              {/* Study memo review note text block */}
+              <div className="pt-4 border-t border-dashed border-neutral-300">
+                <span className="text-[8px] font-mono text-neutral-400 font-bold uppercase block mb-1.5">// INSIGHT MEMO STATEMENT</span>
+                <p className="font-serif text-xs text-neutral-700 leading-relaxed whitespace-pre-wrap italic bg-white p-4 border border-black/10 shadow-xs relative">
+                  <span className="text-3xl text-zinc-300 font-serif absolute -top-1.5 -left-1 font-bold leading-none select-none">“</span>
+                  <span className="relative z-10">{detailedItem.note ? detailedItem.note : (lang === 'en' ? 'No insight statement logged for this catalog review.' : '暂无对此文献的具体研读感悟记录。')}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t border-black/10 font-mono text-[9px] text-neutral-400">
+              <span>{lang === 'en' ? 'LOG_DATE' : '建档日期'} : {detailedItem.date}</span>
+              <button
+                type="button"
+                onClick={() => setDetailedItem(null)}
+                className="px-3.5 py-1 bg-black text-white hover:bg-neutral-800 border border-black font-semibold uppercase text-[10px] tracking-widest cursor-pointer shadow-sm active:translate-y-px active:shadow-none"
+              >
+                {lang === 'en' ? 'CLOSE / CANCEL' : '关闭详情'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+);
 }

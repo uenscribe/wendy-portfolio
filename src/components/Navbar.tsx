@@ -49,20 +49,20 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
             <span className="font-serif text-sm font-black tracking-tighter">W</span>
           </button>
           
-          {/* Top-aligned language switch module */}
-          <div className="flex flex-row gap-0.5 justify-center items-center bg-zinc-900 border border-zinc-800 p-0.5 rounded text-[8px] font-mono select-none w-16">
+          {/* Top-aligned language switch module - Enlarged slightly */}
+          <div className="flex flex-row gap-1 justify-center items-center bg-zinc-900 border border-zinc-800 p-1 rounded text-[11px] font-mono select-none w-20">
             <button
               onClick={() => setLang('en')}
-              className={`px-1.5 py-0.5 rounded-xs transition-colors cursor-pointer font-bold ${
-                lang === 'en' ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'
+              className={`px-2 py-0.5 rounded-xs transition-colors cursor-pointer font-extrabold ${
+                lang === 'en' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white font-medium'
               }`}
             >
               EN
             </button>
             <button
               onClick={() => setLang('zh')}
-              className={`px-1.5 py-0.5 rounded-xs transition-colors cursor-pointer font-bold ${
-                lang === 'zh' ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'
+              className={`px-2 py-0.5 rounded-xs transition-colors cursor-pointer font-extrabold ${
+                lang === 'zh' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white font-medium'
               }`}
             >
               ZH
@@ -71,7 +71,7 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
         </div>
 
         {/* Horizontal text layout listings for right navigation labels as requested */}
-        <div className="flex-1 flex flex-col justify-start items-center gap-8 py-10 w-full overflow-y-auto">
+        <div className="flex-1 flex flex-col justify-start items-center gap-9 py-8 w-full overflow-y-auto">
           {customNavItems.map(item => {
             const IconComponent = IconMap[item.iconName] || Home;
             const isActive = activeTab === item.id;
@@ -81,16 +81,16 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 id={`nav-item-${item.id}`}
-                className={`w-full flex flex-col items-center justify-center py-2 transition-all duration-300 gap-1 cursor-pointer border-r-3 ${
+                className={`w-full flex flex-col items-center justify-center py-2.5 transition-all duration-300 gap-1.5 cursor-pointer border-r-3 ${
                   isActive
                     ? 'text-white border-white bg-white/10 font-bold'
                     : 'text-neutral-400 border-transparent hover:text-white hover:bg-white/5'
                 }`}
                 title={label}
               >
-                <IconComponent className={`w-3.5 h-3.5 transition-transform duration-300 ${isActive ? 'scale-110 opacity-100' : 'opacity-70'}`} />
+                <IconComponent className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-110 opacity-100' : 'opacity-70'}`} />
                 <span
-                  className={`text-[8.5px] uppercase font-bold tracking-tight text-center leading-none px-1 mt-0.5 whitespace-nowrap overflow-none ${item.fontStyle || 'font-sans'}`}
+                  className={`text-[10.5px] uppercase font-bold tracking-tight text-center leading-none px-1 mt-0.5 whitespace-nowrap overflow-none ${item.fontStyle || 'font-sans'}`}
                 >
                   {label}
                 </span>

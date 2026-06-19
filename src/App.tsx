@@ -20,7 +20,7 @@ import {
   Mail, Linkedin, Phone, ArrowRight, Plus, Trash2, 
   BookOpen, Layers, Edit2, ShieldCheck, Clock, Send, 
   Sparkles, Check, Download, Upload, RotateCcw, 
-  ExternalLink, Key, LogOut, Settings2, Settings, FileText, Book, Pin, EyeOff
+  ExternalLink, Key, LogOut, Settings2, Settings, FileText, Book, Pin, EyeOff, GripVertical
 } from 'lucide-react';
 
 const compressAndCropToSquare = (base64Str: string, callback: (compressedB64: string) => void) => {
@@ -123,6 +123,11 @@ export default function App() {
   // Contact Channels editable states
   const [contactChannelEmail, setContactChannelEmail] = useState(() => localStorage.getItem('contact_channel_email') || 'wlu7853@gmail.com');
   const [contactChannelLinkedin, setContactChannelLinkedin] = useState(() => localStorage.getItem('contact_channel_linkedin') || 'linkedin.com/in/w-archive');
+
+  // Global custom cursor states
+  const [customCursorImage, setCustomCursorImage] = useState<string | null>(() => localStorage.getItem('custom_cursor_image'));
+  const [customCursorSize, setCustomCursorSize] = useState<number>(() => Number(localStorage.getItem('custom_cursor_size')) || 24);
+  const [customCursorEnabled, setCustomCursorEnabled] = useState<boolean>(() => localStorage.getItem('custom_cursor_enabled') !== 'false');
   const [contactChannelPhone, setContactChannelPhone] = useState(() => localStorage.getItem('contact_channel_phone') || '+86 188 XXXX XXXX');
 
   // Additional dynamic bilingual branding & timeline header texts per Wendy's request
@@ -890,8 +895,12 @@ export default function App() {
     return !isDraft && !isPrivate;
   });
 
+  const cursorStyle = (customCursorEnabled && customCursorImage) ? {
+    cursor: `url(${customCursorImage}) 0 0, auto`
+  } : {};
+
   return (
-    <div id="full-system-container" className="min-h-screen bg-neutral-100 flex flex-col justify-between selection:bg-black selection:text-white relative font-sans overflow-x-hidden pt-12 pb-14 md:pb-0 md:pr-0">
+    <div id="full-system-container" style={cursorStyle} className="min-h-screen bg-neutral-100 flex flex-col justify-between selection:bg-black selection:text-white relative font-sans overflow-x-hidden pt-12 pb-14 md:pb-0 md:pr-0">
       
       {/* Background Interactive Canvas Animation (Color themes purged) */}
       <InteractiveBg />
@@ -1072,12 +1081,12 @@ export default function App() {
                 </h1>
               </div>
 
-              {/* High impact aesthetic showcase box mimicking NewJeans & Kiiikii minimal grid banners */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                {/* Visual portfolio entry teaser */}
+              {/* High impact aesthetic showcase box mimicking NewJeans & Kiiikii minimal grid banners - Shrink slightly as requested */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 max-w-5xl">
+                {/* Visual portfolio entry teaser (Slightly smaller size) */}
                 <div 
                   onClick={() => handleTabChange(showcase1Redirect)}
-                  className="group relative aspect-[4/3] border-2 border-black bg-neutral-100 flex flex-col justify-end p-6 overflow-hidden shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all duration-500 cursor-pointer"
+                  className="group relative aspect-[16/10] border-2 border-black bg-neutral-100 flex flex-col justify-end p-5 overflow-hidden shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[5px_5px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all duration-500 cursor-pointer"
                 >
                   {/* Background Image with grayscale & hover effect */}
                   {homeModule1Bg ? (
@@ -1111,24 +1120,24 @@ export default function App() {
                   {/* Semitranslucent dark overlay on hover/always, to guarantee text visibility */}
                   <div className={`absolute inset-0 transition-all duration-500 ${homeModule1Bg ? 'bg-black/40 group-hover:bg-black/25' : 'bg-neutral-900/10 group-hover:bg-neutral-950/20'}`} />
 
-                  <div className="absolute top-4 left-4 font-mono text-[9px] font-black bg-black text-white px-1.5 py-0.5 border border-white z-10">
+                  <div className="absolute top-4 left-4 font-mono text-[8.5px] font-black bg-black text-white px-1.5 py-0.5 border border-white z-10">
                     {lang === 'en' ? showcase1BadgeEn : showcase1BadgeZh}
                   </div>
-                  <div className="relative z-10 space-y-2 text-white drop-shadow-md">
-                    <p className="font-mono text-[10px] text-zinc-200 uppercase tracking-widest font-bold">
+                  <div className="relative z-10 space-y-1 text-white drop-shadow-md">
+                    <p className="font-mono text-[9px] text-zinc-300 uppercase tracking-widest font-bold">
                       {lang === 'en' ? showcase1SubtitleEn : showcase1SubtitleZh}
                     </p>
-                    <h3 className="font-serif text-2xl font-black italic tracking-tight text-white group-hover:underline font-black leading-snug">
+                    <h3 className="font-serif text-xl font-black italic tracking-tight text-white group-hover:underline leading-snug">
                       {lang === 'en' ? showcase1TitleEn : showcase1TitleZh}
                     </h3>
                   </div>
-                  <div className="absolute bottom-6 right-6 text-2xl text-white group-hover:translate-x-1.5 transition-transform z-10 drop-shadow">→</div>
+                  <div className="absolute bottom-5 right-5 text-xl text-white group-hover:translate-x-1.5 transition-transform z-10 drop-shadow">→</div>
                 </div>
 
-                {/* Micro Editorial take-outs block */}
+                {/* Micro Editorial take-outs block (Slightly smaller size) */}
                 <div 
                   onClick={() => handleTabChange(showcase2Redirect)}
-                  className="group relative flex flex-col justify-between p-6 border-2 border-black bg-black text-white min-h-[300px] md:min-h-0 space-y-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all duration-500 overflow-hidden cursor-pointer"
+                  className="group relative flex flex-col justify-between p-5 border-2 border-black bg-black text-white min-h-[220px] md:min-h-0 aspect-[16/10] space-y-4 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[5px_5px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all duration-500 overflow-hidden cursor-pointer"
                 >
                   {/* Background Image with grayscale & hover effect */}
                   {homeModule2Bg ? (
@@ -1145,15 +1154,15 @@ export default function App() {
                   {/* Semitranslucent screen overlay to guarantee high-contrast reading text */}
                   <div className={`absolute inset-0 transition-all duration-500 ${homeModule2Bg ? 'bg-black/60 group-hover:bg-black/40' : 'bg-transparent'}`} />
 
-                  <div className="space-y-2 relative z-10">
-                    <span className="px-1.5 py-0.5 bg-neutral-800 border border-neutral-700 font-mono text-[9px] uppercase tracking-widest font-black inline-block text-white">
+                  <div className="space-y-1 relative z-10">
+                    <span className="px-1.5 py-0.5 bg-neutral-800 border border-neutral-700 font-mono text-[8.5px] uppercase tracking-widest font-black inline-block text-white">
                       {lang === 'en' ? showcase2BadgeEn : showcase2BadgeZh}
                     </span>
-                    <h3 className="font-serif text-xl font-bold tracking-tight text-white">
+                    <h3 className="font-serif text-lg font-bold tracking-tight text-white">
                       {lang === 'en' ? showcase2TitleEn : showcase2TitleZh}
                     </h3>
                   </div>
-                  <p className="font-serif text-neutral-200 text-xs leading-relaxed max-w-sm relative z-10 drop-shadow">
+                  <p className="font-serif text-neutral-300 text-xs leading-relaxed max-w-sm relative z-10 drop-shadow line-clamp-2 md:line-clamp-3">
                     {lang === 'en' ? showcase2DescEn : showcase2DescZh}
                   </p>
                   <button 
@@ -1161,10 +1170,10 @@ export default function App() {
                       e.stopPropagation();
                       handleTabChange(showcase2Redirect);
                     }}
-                    className="self-start font-mono text-xs font-black uppercase flex items-center gap-1 hover:text-neutral-300 pointer group cursor-pointer relative z-10"
+                    className="self-start font-mono text-[10px] font-black uppercase flex items-center gap-1 hover:text-neutral-300 pointer group cursor-pointer relative z-10 mt-1"
                   >
-                    <span>{lang === 'en' ? `EXPLORE ${showcase2Redirect.toUpperCase()} ARCHIVES` : '进入特写展示页面'}</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform text-neutral-300" />
+                    <span>{lang === 'en' ? `EXPLORE ${showcase2Redirect.toUpperCase()}` : '进入特写展示'}</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform text-neutral-300" />
                   </button>
                 </div>
               </div>
@@ -2046,6 +2055,17 @@ export default function App() {
                     >
                       <span>🎵</span>
                       <span>{lang === 'en' ? 'Playbox Music' : '上传歌曲/播放列表'}</span>
+                    </button>
+                    <button
+                      onClick={() => setAdminSubTab('settings_custom')}
+                      className={`px-3 py-1.5 border font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                        adminSubTab === 'settings_custom'
+                          ? 'bg-black text-white border-black shadow-[2px_2px_0px_rgba(0,0,0,1)]'
+                          : 'bg-white text-black border-neutral-300 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <span>⚙️</span>
+                      <span>{lang === 'en' ? 'Cursor Setting' : '全局个性化/光标管理'}</span>
                     </button>
                   </div>
 
@@ -3482,12 +3502,42 @@ export default function App() {
                               </button>
                             </div>
 
-                            <div className="border border-black rounded divide-y divide-neutral-200 max-h-[220px] overflow-y-auto bg-neutral-50 p-1 space-y-1">
+                            <div className="border border-black rounded divide-y divide-neutral-200 max-h-[300px] overflow-y-auto bg-neutral-50 p-1 space-y-1">
                               {customTracks.map((track, idx) => {
                                 const isDefault = track.id.startsWith('track-') && !track.id.startsWith('track-custom-');
                                 return (
-                                  <div key={track.id} className="flex justify-between items-center p-2 bg-white border border-neutral-100 hover:border-black transition rounded-xs">
+                                  <div 
+                                    key={track.id} 
+                                    draggable={true}
+                                    onDragStart={(e) => {
+                                      e.dataTransfer.setData('text/plain', idx.toString());
+                                      e.dataTransfer.effectAllowed = 'move';
+                                    }}
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                    }}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      const srcIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                                      if (isNaN(srcIdx) || srcIdx === idx) return;
+                                      
+                                      const reordered = [...customTracks];
+                                      const [moved] = reordered.splice(srcIdx, 1);
+                                      reordered.splice(idx, 0, moved);
+                                      
+                                      setCustomTracks(reordered);
+                                      localStorage.setItem('playlist_tracks', JSON.stringify(reordered));
+                                      window.dispatchEvent(new Event('playlist-updated'));
+                                    }}
+                                    className="flex justify-between items-center p-2 bg-white border border-neutral-100 hover:border-black transition rounded-xs cursor-grab active:cursor-grabbing"
+                                    title={lang === 'en' ? 'Drag and drop to adjust play sequence' : '按住拖动调整歌曲播放顺序'}
+                                  >
                                     <div className="flex items-center gap-3 min-w-0 flex-1">
+                                      {/* Drag Indicator Grip Handle */}
+                                      <div className="text-stone-400 hover:text-black transition shrink-0">
+                                        <GripVertical className="w-3.5 h-3.5" />
+                                      </div>
+
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -3499,12 +3549,12 @@ export default function App() {
                                         ▶
                                       </button>
                                       
-                                      <div className="min-w-0">
-                                        <div className="font-bold text-[10px] text-black truncate flex items-center gap-1.5">
+                                      <div className="min-w-0 font-sans">
+                                        <div className="font-bold text-[10px] text-black truncate flex items-center gap-1.5 leading-tight">
                                           <span>{idx + 1}.</span>
                                           <span className="truncate">{track.title}</span>
                                           {!isDefault && (
-                                            <span className="text-[7.5px] px-1 bg-zinc-200 text-neutral-700 font-extrabold rounded-xs scale-90">USER</span>
+                                            <span className="text-[7px] font-sans px-1 bg-zinc-200 text-neutral-705 font-black rounded-xs scale-90 leading-none">USER</span>
                                           )}
                                         </div>
                                         <div className="text-[9px] text-neutral-400 truncate mt-0.5">{track.artist}</div>
@@ -3531,6 +3581,182 @@ export default function App() {
                               })}
                             </div>
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB Tabpanel 8: CUSTOM CURSOR & GLOBAL SYSTEM SETTINGS */}
+                  {adminSubTab === 'settings_custom' && (
+                    <div className="space-y-6 animate-fade-in">
+                      <div className="border-2 border-black p-6 bg-white shadow-[4px_4px_0px_rgba(0,0,0,1)] rounded-sm space-y-6 text-[#000000]">
+                        <div className="border-b border-black/10 pb-3">
+                          <span className="text-[9px] font-mono text-neutral-400 font-bold block uppercase tracking-widest">// GLOBAL AESTHETICS ENGINE</span>
+                          <h2 className="font-serif text-xl font-bold uppercase">{lang === 'en' ? 'Genuinely Custom Cursors' : '全局自定义光标与个性化配置'}</h2>
+                          <p className="font-mono text-[10px] text-neutral-400 mt-1">
+                            {lang === 'en' 
+                              ? 'Upload reference icons/images (e.g. .png, .jpg, .svg) and rescale live canvas coordinates to style custom vectors.' 
+                              : '创作者工作台专属：在此上传光标设计图（支持透明PNG/SVG/JPG），并拖动大小滑块拉伸进行全局渲染。鼠标在网页中移动时，将实时显示为该光标！'}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Image Upload Zone */}
+                          <div className="space-y-4 font-mono text-xs">
+                            <span className="font-bold text-[10px] uppercase text-zinc-500 block">1. Cursor Asset Source / 光标图片源</span>
+                            
+                            <div className="border border-black p-4 bg-neutral-50 rounded-sm">
+                              {customCursorImage ? (
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-3 bg-white p-2 border border-black/10 shadow-sm rounded-xs">
+                                    <div 
+                                      className="w-10 h-10 border border-black/30 flex items-center justify-center bg-stone-100 relative overflow-hidden shrink-0"
+                                      style={{ cursor: `url(${customCursorImage}) 0 0, auto` }}
+                                      title={lang === 'en' ? 'Hover here to preview cursor' : '悬停此处预览光标'}
+                                    >
+                                      <img 
+                                        src={customCursorImage} 
+                                        alt="cursor file" 
+                                        className="object-contain" 
+                                        style={{ width: `${customCursorSize}px`, height: `${customCursorSize}px` }}
+                                      />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-black text-[10px] text-zinc-800">active_cursor_asset</div>
+                                      <div className="text-[8.5px] text-neutral-400">Scaled: {customCursorSize}px × {customCursorSize}px</div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCustomCursorImage(null);
+                                        localStorage.removeItem('custom_cursor_image');
+                                      }}
+                                      className="px-2 py-0.5 border border-red-500 hover:bg-red-50 text-red-500 font-extrabold text-[9px] cursor-pointer"
+                                    >
+                                      [DELETE]
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center py-4 space-y-3_wrap">
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    id="cursor-asset-uploader"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file && file.type.startsWith('image/')) {
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                          const base64 = event.target?.result as string;
+                                          if (base64) {
+                                            // Render onto a helper canvas to scale immediately and filter background
+                                            const img = new Image();
+                                            img.onload = () => {
+                                              const canvas = document.createElement('canvas');
+                                              const size = customCursorSize; 
+                                              canvas.width = size;
+                                              canvas.height = size;
+                                              const ctx = canvas.getContext('2d');
+                                              if (ctx) {
+                                                ctx.drawImage(img, 0, 0, size, size);
+                                                const smallBase = canvas.toDataURL('image/png');
+                                                setCustomCursorImage(smallBase);
+                                                localStorage.setItem('custom_cursor_image', smallBase);
+                                              }
+                                            };
+                                            img.src = base64;
+                                          }
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                  <label 
+                                    htmlFor="cursor-asset-uploader"
+                                    className="cursor-pointer inline-block px-4 py-2 bg-black text-white hover:bg-neutral-800 font-extrabold uppercase text-[10px] border border-black shadow-[1px_1px_0px_rgba(0,0,0,1)] font-sans"
+                                  >
+                                    {lang === 'en' ? 'Upload Custom Cursor / 本地选择光标图片' : '本地上传光标图片'}
+                                  </label>
+                                  <div className="text-[8px] text-zinc-400 mt-2 block">Supports transparent png / svg vector shapes. Web safe pixel scaling auto-applied.</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Sizing & Calibration Controls */}
+                          <div className="space-y-4 font-mono text-xs">
+                            <span className="font-bold text-[10px] uppercase text-zinc-500 block">2. Scale & Toggle Engine / 缩放与使能开关</span>
+                            
+                            <div className="space-y-4 border border-black/10 p-4 rounded bg-stone-50">
+                              <div className="flex justify-between items-center bg-white p-2.5 border border-black/5 rounded">
+                                <label className="flex items-center gap-2 font-bold text-[10.5px] cursor-pointer">
+                                  <input 
+                                    type="checkbox"
+                                    checked={customCursorEnabled}
+                                    onChange={(e) => {
+                                      setCustomCursorEnabled(e.target.checked);
+                                      localStorage.setItem('custom_cursor_enabled', String(e.target.checked));
+                                    }}
+                                    className="w-4 h-4 border border-black accent-black rounded-none"
+                                  />
+                                  <span>{lang === 'en' ? 'Enable Custom Cursor' : '开启自定义光标功能'}</span>
+                                </label>
+                              </div>
+
+                              <div className="space-y-1.5 pt-1.5 border-t border-black/5">
+                                <div className="flex justify-between text-[10px] font-bold">
+                                  <span>📏 CURSOR SIZE / 光标大小</span>
+                                  <span className="text-zinc-500">{customCursorSize}px</span>
+                                </div>
+                                <input 
+                                  type="range" 
+                                  min="16" 
+                                  max="48" 
+                                  value={customCursorSize}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setCustomCursorSize(val);
+                                    localStorage.setItem('custom_cursor_size', String(val));
+                                    
+                                    // When dynamic size changes, recreate scaled base64 cursor if original is present
+                                    if (customCursorImage) {
+                                      const img = new Image();
+                                      img.onload = () => {
+                                        const canvas = document.createElement('canvas');
+                                        canvas.width = val;
+                                        canvas.height = val;
+                                        const ctx = canvas.getContext('2d');
+                                        if (ctx) {
+                                          ctx.drawImage(img, 0, 0, val, val);
+                                          const resized = canvas.toDataURL('image/png');
+                                          setCustomCursorImage(resized);
+                                          localStorage.setItem('custom_cursor_image', resized);
+                                        }
+                                      };
+                                      img.src = customCursorImage;
+                                    }
+                                  }}
+                                  className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none accent-black cursor-pointer"
+                                />
+                                <div className="flex justify-between text-[7px] text-zinc-400 uppercase font-black tracking-wider">
+                                  <span>16px (small)</span>
+                                  <span>48px (high-vis)</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Interactive playground box */}
+                        <div className="border border-black p-4 bg-zinc-100 rounded text-center relative select-none">
+                          <span className="font-serif text-[10px] italic text-zinc-500 block mb-1">
+                            {lang === 'en' ? '--- CURSOR EXPERIMENTAL PLAYGROUND ---' : '=== 鼠标光标创意交互测试区 ==='}
+                          </span>
+                          <span className="text-[10px] text-neutral-400 font-mono">
+                            {lang === 'en' ? 'Hover/Drag inside this panel to verify vector orientation.' : '将鼠标在这个灰色卡片内移动，可立即测试您上传设计的专属自定义鼠标！'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -4529,6 +4755,22 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Task 8: Guest floating scroll-to-top bubble */}
+      {!isAdminLoggedIn && (
+        <button
+          onClick={() => {
+            const container = document.getElementById('primary-content-viewport') || window;
+            container.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-55 w-12 h-12 rounded-full border border-black bg-white hover:bg-black hover:text-white text-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center font-mono leading-none group"
+          title={lang === 'en' ? 'Scroll to Top' : '返回顶部'}
+        >
+          <span className="text-sm font-bold group-hover:-translate-y-0.5 transition-transform">↑</span>
+          <span className="text-[7.5px] font-black tracking-wider uppercase mt-0.5">TOP</span>
+        </button>
+      )}
+
     </div>
   );
 }

@@ -25,8 +25,49 @@ export default function Playlist() {
   const timerRef = useRef<any>(null);
   const startTimeRef = useRef<number>(0);
   const cachedElapsedRef = useRef<number>(0);
+  const [waveform, setWaveform] = useState<number[]>(() => Array(16).fill(2));
 
   const currentTrack = tracksList[currentTrackIndex] || { id: 'unknown', title: 'No Track', duration: '00:00' };
+
+  // Listen to custom track ended event for auto next track support
+  useEffect(() => {
+    const handleAudioEnded = () => {
+      // Trigger Next song
+      if (tracksList.length === 0) return;
+      const nextIdx = (currentTrackIndex + 1) % tracksList.length;
+      setCurrentTrackIndex(nextIdx);
+      cachedElapsedRef.current = 0;
+      setTimeState('00:00');
+      setIsPlaying(true);
+      synthManager.play(tracksList[nextIdx].id, tracksList[nextIdx].fileUrl);
+    };
+
+    window.addEventListener('synth-audio-ended', handleAudioEnded);
+    return () => window.removeEventListener('synth-audio-ended', handleAudioEnded);
+  }, [tracksList, currentTrackIndex]);
+
+  // Handle active real waveform requestAnimationFrame polling
+  useEffect(() => {
+    let animFrame: number;
+    const update = () => {
+      if (isPlaying) {
+        setWaveform(synthManager.getWaveform(20)); // Sample 20 points
+        animFrame = requestAnimationFrame(update);
+      } else {
+        setWaveform(Array(20).fill(2));
+      }
+    };
+
+    if (isPlaying) {
+      animFrame = requestAnimationFrame(update);
+    } else {
+      setWaveform(Array(20).fill(2));
+    }
+
+    return () => {
+      cancelAnimationFrame(animFrame);
+    };
+  }, [isPlaying]);
 
   // Listen to playlist-updated event
   useEffect(() => {
@@ -151,9 +192,8 @@ export default function Playlist() {
     setCurrentTrackIndex(nextIdx);
     cachedElapsedRef.current = 0;
     setTimeState('00:00');
-    if (isPlaying) {
-      synthManager.play(tracksList[nextIdx].id, tracksList[nextIdx].fileUrl);
-    }
+    setIsPlaying(true);
+    synthManager.play(tracksList[nextIdx].id, tracksList[nextIdx].fileUrl);
   };
 
   const handlePrev = () => {
@@ -162,9 +202,8 @@ export default function Playlist() {
     setCurrentTrackIndex(prevIdx);
     cachedElapsedRef.current = 0;
     setTimeState('00:00');
-    if (isPlaying) {
-      synthManager.play(tracksList[prevIdx].id, tracksList[prevIdx].fileUrl);
-    }
+    setIsPlaying(true);
+    synthManager.play(tracksList[prevIdx].id, tracksList[prevIdx].fileUrl);
   };
 
   const selectTrack = (index: number) => {
@@ -246,19 +285,14 @@ export default function Playlist() {
       {/* Right: Audio Visualizer & Static/Dynamic Timer */}
       <div className="flex items-center gap-4 justify-end w-1/3">
         {/* Dynamic Waveform Visualizer */}
-        <div className="hidden sm:flex items-end gap-0.5 h-5 w-24 px-2" title="Audio Waveform">
-          {[...Array(10)].map((_, i) => {
-            const height = isPlaying
-              ? [12, 18, 6, 14, 20, 8, 16, 10, 14, 8][(i + Math.floor(Date.now() / 150)) % 10]
-              : 2;
-            return (
-              <div
-                key={i}
-                className="w-1.5 bg-black transition-all duration-150"
-                style={{ height: `${height}px` }}
-              />
-            );
-          })}
+        <div className="hidden sm:flex items-end gap-1 h-5 w-auto px-2" title="Audio Waveform">
+          {waveform.map((h, i) => (
+            <div
+              key={i}
+              className="w-1 bg-black transition-all duration-75"
+              style={{ height: `${h}px` }}
+            />
+          ))}
         </div>
 
         <div className="tabular-nums font-mono border-l border-neutral-300 pl-4 flex items-center gap-2">

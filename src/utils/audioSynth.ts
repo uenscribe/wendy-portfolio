@@ -16,6 +16,7 @@ class AudioSynthManager {
   private noteSequence: number[] = [];
   private trackId: string = '';
   private audioEl: HTMLAudioElement | null = null;
+  private analyser: AnalyserNode | null = null;
 
   constructor() {
     // Lazy initialized on play to conform to browser auto-play policies
@@ -24,6 +25,9 @@ class AudioSynthManager {
   private initCtx() {
     if (!this.ctx) {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 256;
+      this.analyser.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
@@ -45,10 +49,26 @@ class AudioSynthManager {
       this.isPlaying = true;
       try {
         this.audioEl = new Audio(urlToPlay);
-        this.audioEl.loop = true;
+        this.audioEl.crossOrigin = "anonymous";
+        this.audioEl.loop = false;
+        
+        this.audioEl.addEventListener('ended', () => {
+          window.dispatchEvent(new CustomEvent('synth-audio-ended'));
+        });
+
         this.audioEl.play().catch(err => {
           console.warn('Audio playback is blocked by browser gesture lock. Waiting on user gesture...', err);
         });
+
+        // Pipe to analyser
+        if (this.ctx && this.analyser) {
+          try {
+            const source = this.ctx.createMediaElementSource(this.audioEl);
+            source.connect(this.analyser);
+          } catch (audioPipeError) {
+            console.warn('Fail to route AudioElement to Web Audio Analyser (possibly already routed or CORS restricted):', audioPipeError);
+          }
+        }
       } catch (err) {
         console.error('Failed to initialize or play custom uploaded track:', err);
       }
@@ -138,7 +158,7 @@ class AudioSynthManager {
 
     osc.connect(filter);
     filter.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
+    gainNode.connect(this.analyser || this.ctx.destination);
 
     // Style-specific waveforms and settings
     if (style === 'ditto') {
@@ -214,6 +234,34 @@ class AudioSynthManager {
 
   public setVolume(volume: number) {
     // Volume handler if needed
+  }
+
+  public getWaveform(length: number = 10): number[] {
+    if (!this.isPlaying) {
+      return Array(length).fill(2);
+    }
+    if (!this.ctx || !this.analyser) {
+      return Array(length).fill(5);
+    }
+    
+    try {
+      const bufferLength = this.analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      this.analyser.getByteTimeDomainData(dataArray);
+      
+      const result: number[] = [];
+      const step = Math.max(1, Math.floor(bufferLength / length));
+      for (let i = 0; i < length; i++) {
+        const idx = Math.min(bufferLength - 1, i * step);
+        const val = dataArray[idx]; 
+        const centered = Math.abs(val - 128); 
+        const height = Math.max(2, Math.min(20, 2 + centered * 0.25));
+        result.push(height);
+      }
+      return result;
+    } catch (e) {
+      return Array(length).fill(4);
+    }
   }
 }
 
