@@ -72,6 +72,214 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
+  // Reusable custom visual cropper states for works and gallery
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [cropX, setCropX] = useState<number>(10);
+  const [cropY, setCropY] = useState<number>(10);
+  const [cropW, setCropW] = useState<number>(80);
+  const [cropH, setCropH] = useState<number>(45);
+  const [cropAspect, setCropAspect] = useState<'free' | '16:9' | '4:3' | '1:1'>('16:9');
+  const [onCropComplete, setOnCropComplete] = useState<((cropped: string) => void) | null>(null);
+
+  // Drag states for interactive cropper dragging
+  const [dragMode, setDragMode] = useState<{
+    type: 'move' | 'resize' | 'draw';
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    initialW: number;
+    initialH: number;
+    edges?: { left: boolean; right: boolean; top: boolean; bottom: boolean };
+  } | null>(null);
+
+  const handleCropperPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+    const thresholdPercent = 6;
+    const isNearLeft = Math.abs(xPercent - cropX) < thresholdPercent;
+    const isNearRight = Math.abs(xPercent - (cropX + cropW)) < thresholdPercent;
+    const isNearTop = Math.abs(yPercent - cropY) < thresholdPercent;
+    const isNearBottom = Math.abs(yPercent - (cropY + cropH)) < thresholdPercent;
+
+    const isInside = xPercent >= cropX && xPercent <= cropX + cropW &&
+                     yPercent >= cropY && yPercent <= cropY + cropH;
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    if (isNearLeft || isNearRight || isNearTop || isNearBottom) {
+      setDragMode({
+        type: 'resize',
+        startX: xPercent,
+        startY: yPercent,
+        initialX: cropX,
+        initialY: cropY,
+        initialW: cropW,
+        initialH: cropH,
+        edges: { left: isNearLeft, right: isNearRight, top: isNearTop, bottom: isNearBottom }
+      });
+    } else if (isInside) {
+      setDragMode({
+        type: 'move',
+        startX: xPercent,
+        startY: yPercent,
+        initialX: cropX,
+        initialY: cropY,
+        initialW: cropW,
+        initialH: cropH
+      });
+    } else {
+      setDragMode({
+        type: 'draw',
+        startX: xPercent,
+        startY: yPercent,
+        initialX: xPercent,
+        initialY: yPercent,
+        initialW: 0,
+        initialH: 0
+      });
+    }
+  };
+
+  const handleCropperPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragMode) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xPercent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPercent = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+
+    const dx = xPercent - dragMode.startX;
+    const dy = yPercent - dragMode.startY;
+
+    if (dragMode.type === 'move') {
+      const nextX = Math.max(0, Math.min(100 - dragMode.initialW, dragMode.initialX + dx));
+      const nextY = Math.max(0, Math.min(100 - dragMode.initialH, dragMode.initialY + dy));
+      adjustCropBox(nextX, nextY, dragMode.initialW, dragMode.initialH, cropAspect);
+    } else if (dragMode.type === 'resize' && dragMode.edges) {
+      let nextX = dragMode.initialX;
+      let nextY = dragMode.initialY;
+      let nextW = dragMode.initialW;
+      let nextH = dragMode.initialH;
+
+      if (dragMode.edges.left) {
+        const proposedX = Math.max(0, dragMode.initialX + dx);
+        nextW = Math.max(8, dragMode.initialX + dragMode.initialW - proposedX);
+        nextX = dragMode.initialX + dragMode.initialW - nextW;
+      } else if (dragMode.edges.right) {
+        nextW = Math.max(8, Math.min(100 - dragMode.initialX, dragMode.initialW + dx));
+      }
+
+      if (dragMode.edges.top) {
+        const proposedY = Math.max(0, dragMode.initialY + dy);
+        nextH = Math.max(8, dragMode.initialY + dragMode.initialH - proposedY);
+        nextY = dragMode.initialY + dragMode.initialH - nextH;
+      } else if (dragMode.edges.bottom) {
+        nextH = Math.max(8, Math.min(100 - dragMode.initialY, dragMode.initialH + dy));
+      }
+
+      adjustCropBox(nextX, nextY, nextW, nextH, cropAspect);
+    } else if (dragMode.type === 'draw') {
+      const startPointX = dragMode.startX;
+      const startPointY = dragMode.startY;
+
+      let nextX = Math.min(startPointX, xPercent);
+      let nextY = Math.min(startPointY, yPercent);
+      let nextW = Math.max(5, Math.abs(xPercent - startPointX));
+      let nextH = Math.max(5, Math.abs(yPercent - startPointY));
+
+      adjustCropBox(nextX, nextY, nextW, nextH, cropAspect);
+    }
+  };
+
+  const handleCropperPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragMode) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    setDragMode(null);
+  };
+
+  const initiateCropper = (file: File, callback: (cropped: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      if (base64) {
+        setImageToCrop(base64);
+        setCropX(10);
+        setCropY(10);
+        setCropW(80);
+        setCropH(45); // close to 16:9
+        setCropAspect('16:9');
+        setOnCropComplete(() => callback);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const adjustCropBox = (x: number, y: number, w: number, h: number, aspect: string) => {
+    let nextW = w;
+    let nextH = h;
+    if (aspect === '3:4') {
+      nextH = Math.min(100 - y, (w * 4) / 3);
+      if (y + nextH > 100) {
+        nextH = 100 - y;
+        nextW = (nextH * 3) / 4;
+      }
+    } else if (aspect === '16:9') {
+      nextH = Math.min(100 - y, (w * 9) / 16);
+      if (y + nextH > 100) {
+        nextH = 100 - y;
+        nextW = (nextH * 16) / 9;
+      }
+    } else if (aspect === '4:3') {
+      nextH = Math.min(100 - y, (w * 3) / 4);
+      if (y + nextH > 100) {
+        nextH = 100 - y;
+        nextW = (nextH * 4) / 3;
+      }
+    } else if (aspect === '1:1') {
+      nextH = Math.min(100 - y, w);
+      if (y + nextH > 100) {
+        nextH = 100 - y;
+        nextW = nextH;
+      }
+    }
+    setCropX(Math.max(0, Math.min(100 - nextW, x)));
+    setCropY(Math.max(0, Math.min(100 - nextH, y)));
+    setCropW(nextW);
+    setCropH(nextH);
+  };
+
+  const executeCrop = () => {
+    if (!imageToCrop) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const sX = img.naturalWidth * (cropX / 100);
+      const sY = img.naturalHeight * (cropY / 100);
+      const sW = img.naturalWidth * (cropW / 100);
+      const sH = img.naturalHeight * (cropH / 100);
+
+      canvas.width = 800;
+      canvas.height = (sH / sW) * 800;
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, sX, sY, sW, sH, 0, 0, canvas.width, canvas.height);
+
+      const base64 = canvas.toDataURL('image/jpeg', 0.88);
+      if (onCropComplete) {
+        onCropComplete(base64);
+      }
+      setImageToCrop(null);
+    };
+    img.src = imageToCrop;
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (activeGalleryIndex !== null && activeProject?.gallery) {
@@ -113,6 +321,10 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
       const isPrivateStatus = proj.visibility === 'Private';
       return matchesCategory && matchesSearch && !isDraftStatus && !isPrivateStatus;
     }
+  }).sort((a, b) => {
+    const pinA = a.pinned ? 1 : 0;
+    const pinB = b.pinned ? 1 : 0;
+    return pinB - pinA; // priorize pinned items at the very beginning
   });
 
   const t = UI_TRANSLATIONS[lang];
@@ -175,46 +387,40 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
   };
 
   // Helper handling file selection for cover
-  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const compressed = await compressAndCropImage(file);
-        setFormImgUrl(compressed);
-      } catch (err) {
-        alert('Image processing failed: ' + err);
-      }
+    if (file && file.type.startsWith('image/')) {
+      initiateCropper(file, (cropped) => {
+        setFormImgUrl(cropped);
+      });
     }
   };
 
   // Helper handling file drop for cover
-  const handleCoverDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleCoverDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      try {
-        const compressed = await compressAndCropImage(file);
-        setFormImgUrl(compressed);
-      } catch (err) {
-        alert('Image drop processing failed: ' + err);
-      }
+      initiateCropper(file, (cropped) => {
+        setFormImgUrl(cropped);
+      });
     }
   };
 
   // Gallery multi-images uploader
-  const handleGalleryFileAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryFileAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const pImages: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        try {
-          const comp = await compressAndCropImage(files[i]);
-          pImages.push(comp);
-        } catch (err) {
-          console.error(err);
-        }
-      }
-      setFormGallery(prev => [...prev, ...pImages]);
+      const fileList = Array.from(files) as File[];
+      const processSequence = (index: number) => {
+        if (index >= fileList.length) return;
+        const currentFile = fileList[index];
+        initiateCropper(currentFile, (cropped) => {
+          setFormGallery(prev => [...prev, cropped]);
+          processSequence(index + 1);
+        });
+      };
+      processSequence(0);
     }
   };
 
@@ -620,12 +826,12 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
                 <div className="space-y-2">
                   <div className="flex justify-between items-start gap-2">
                     <h3 className="font-serif text-lg font-bold text-black tracking-tight group-hover:underline decoration-1 leading-snug">
-                      {proj.title}
+                      {lang === 'zh' ? (proj.title_zh || proj.title) : proj.title}
                     </h3>
                     <ArrowUpRight className="w-4 h-4 text-black shrink-0 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                   </div>
                   <p className="font-serif text-xs text-neutral-600 line-clamp-2 leading-relaxed">
-                    {proj.description}
+                    {lang === 'zh' ? (proj.description_zh || proj.description) : proj.description}
                   </p>
                 </div>
 
@@ -667,13 +873,22 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
             transition={{ type: 'spring', damping: 26, stiffness: 210 }}
             className="fixed left-0 md:left-28 right-0 top-0 bottom-0 bg-white z-50 border-l border-neutral-300 overflow-y-auto flex flex-col pt-12 md:pt-6 pb-16 select-none"
           >
-            <div className="border-b-2 border-black p-6 flex justify-between items-center bg-neutral-50 shrink-0">
-              <div className="font-mono text-xs uppercase tracking-widest font-black text-black">
-                {t.archiveRef}: {activeProject.id}
-              </div>
+            <div className="border-b-2 border-black p-4 flex justify-between items-center bg-neutral-50 shrink-0 gap-4">
               <button
                 onClick={() => setActiveProject(null)}
-                className="font-mono font-bold text-xs bg-black text-white px-3 py-1.5 border border-black hover:bg-neutral-800 cursor-pointer text-[10px] uppercase rounded shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[0px_0px_0px_rgba(0,0,0,1)]"
+                className="flex items-center gap-1.5 font-mono font-bold text-[10px] bg-white text-black px-3 py-1.5 border border-black hover:bg-neutral-50 cursor-pointer uppercase rounded shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>{lang === 'en' ? 'BACK TO LIST / 返回作品集' : '返回列表'}</span>
+              </button>
+              
+              <div className="hidden sm:block font-mono text-[10px] uppercase tracking-widest font-black text-neutral-400">
+                {t.archiveRef}: {activeProject.id}
+              </div>
+
+              <button
+                onClick={() => setActiveProject(null)}
+                className="font-mono font-bold text-xs bg-black text-white px-3 py-1.5 border border-black hover:bg-neutral-800 cursor-pointer text-[10px] uppercase rounded shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5"
               >
                 {t.close}
               </button>
@@ -1251,6 +1466,169 @@ export default function WorksSection({ projects, lang = 'en', isAdminLoggedIn = 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PROJECTS CROPPING MODAL */}
+      {imageToCrop && (
+        <div className="fixed inset-0 bg-black/85 z-55 flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white border-2 border-black w-full max-w-xl p-6 space-y-4 shadow-[5px_5px_0px_rgba(0,0,0,1)] rounded-sm">
+            <div className="flex justify-between items-center border-b border-black pb-2">
+              <h3 className="font-serif text-sm font-black uppercase tracking-tight flex items-center gap-1.5 animate-pulse">
+                <span>✂️</span>
+                <span>{lang === 'en' ? 'Adjust & Crop Image / 创意画幅裁剪' : '调整与裁剪作品展示图片'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setImageToCrop(null)}
+                className="text-[9px] font-mono font-bold bg-neutral-100 hover:bg-neutral-200 border border-black/20 px-2 py-0.5 rounded cursor-pointer"
+              >
+                [ SKIP CROP / 跳过 ]
+              </button>
+            </div>
+
+            <p className="text-[10px] text-zinc-500 font-mono leading-relaxed">
+              {lang === 'en' 
+                ? 'Slide controls to locate your creative focus viewport bounds. Aspect presets adapt to grids.' 
+                : '拖动滑块确定裁剪的焦点选区，可以使用以下宽高比预设，使艺术作品更契合展示网格。'}
+            </p>
+
+            {/* Real-time high-fidelity bounding box overlay with drag and draw gestures support */}
+            <div 
+              onPointerDown={handleCropperPointerDown}
+              onPointerMove={handleCropperPointerMove}
+              onPointerUp={handleCropperPointerUp}
+              onPointerCancel={handleCropperPointerUp}
+              className="relative border-4 border-black bg-stone-900 max-h-[350px] overflow-hidden flex items-center justify-center select-none aspect-video cursor-crosshair touch-none"
+              title={lang === 'en' ? 'Drag inside to move. Drag bounds/draw to crop.' : '按住虚线框内可拖拽移动起终点，或按住边缘拖拽缩放选区，在任意空白处拖动可重新画框。'}
+            >
+              <img 
+                id="cropper-source-image-works-preview"
+                src={imageToCrop} 
+                alt="Source to Crop" 
+                className="max-h-[340px] max-w-full object-contain pointer-events-none"
+              />
+              {/* Real-time high contrast visual boundary indicators */}
+              <div 
+                className="absolute border-2 border-[#fbbf24] border-dashed shadow-[0_0_0_9999px_rgba(0,0,0,0.65)] pointer-events-none"
+                style={{
+                  left: `${cropX}%`,
+                  top: `${cropY}%`,
+                  width: `${cropW}%`,
+                  height: `${cropH}%`,
+                }}
+              >
+                <div className="absolute top-1 left-1.5 bg-[#fbbf24] text-black text-[7px] font-mono font-bold leading-none px-1 py-0.5 rounded-sm">
+                  CROP FOCUS VIEWPORT
+                </div>
+                {/* Drag resize visual corner cues */}
+                <div className="absolute top-0 left-0 w-2 h-2 border-l-2 border-t-2 border-[#fbbf24]" />
+                <div className="absolute top-0 right-0 w-2 h-2 border-r-2 border-t-2 border-[#fbbf24]" />
+                <div className="absolute bottom-0 left-0 w-2 h-2 border-l-2 border-b-2 border-[#fbbf24]" />
+                <div className="absolute bottom-0 right-0 w-2 h-2 border-r-2 border-b-2 border-[#fbbf24]" />
+              </div>
+            </div>
+
+            {/* Preset Buttons */}
+            <div className="flex flex-col gap-1 pr-1">
+              <span className="text-[9px] text-neutral-400 font-bold block uppercase tracking-wider">// Crop Aspect Presets / 画幅展示比例</span>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { id: 'free', label: lang === 'en' ? 'Free Form (自由)' : '自由比例' },
+                  { id: '16:9', label: lang === 'en' ? '16:9 Landscape (经典宽屏)' : '16:9 经典宽屏' },
+                  { id: '4:3', label: lang === 'en' ? '4:3 Grid (传统对齐)' : '4:3 艺术网格' },
+                  { id: '1:1', label: lang === 'en' ? '1:1 Square (正方画幅)' : '1:1 正方画幅' }
+                ].map(preset => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      setCropAspect(preset.id as any);
+                      adjustCropBox(cropX, cropY, cropW, cropH, preset.id);
+                    }}
+                    className={`px-3 py-1 text-[9.5px] font-bold border transition cursor-pointer ${
+                      cropAspect === preset.id 
+                        ? 'bg-black text-white border-black' 
+                        : 'bg-white text-black border-zinc-200 hover:bg-neutral-50'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Coordinate Adjustment Sliders */}
+            <div className="grid grid-cols-2 gap-3 bg-neutral-50 p-2.5 border border-[#1e1b4b]/10 rounded font-mono text-[9px] text-black">
+              <div className="space-y-0.5">
+                <span className="text-[9px] text-zinc-500 font-bold block">⬅ HORIZONTAL OFFSET / 水平偏移 (X)</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={Math.max(0, 100 - cropW)} 
+                  value={cropX} 
+                  onChange={(e) => adjustCropBox(Number(e.target.value), cropY, cropW, cropH, cropAspect)}
+                  className="w-full accent-black cursor-pointer"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[9px] text-zinc-500 font-bold block">⬆ VERTICAL OFFSET / 垂直偏移 (Y)</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={Math.max(0, 100 - cropH)} 
+                  value={cropY} 
+                  onChange={(e) => adjustCropBox(cropX, Number(e.target.value), cropW, cropH, cropAspect)}
+                  className="w-full accent-black cursor-pointer"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[9px] text-zinc-500 font-bold block">↔ VIEWPORT WIDTH / 选区宽度 (W)</span>
+                <input 
+                  type="range" 
+                  min="10" 
+                  max={100 - cropX} 
+                  value={cropW} 
+                  onChange={(e) => adjustCropBox(cropX, cropY, Number(e.target.value), cropH, cropAspect)}
+                  className="w-full accent-black cursor-pointer"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[9px] text-zinc-500 font-bold block">↕ VIEWPORT HEIGHT / 选区高度 (H)</span>
+                <input 
+                  type="range" 
+                  min="10" 
+                  max={100 - cropY} 
+                  value={cropH} 
+                  disabled={cropAspect !== 'free'}
+                  onChange={(e) => adjustCropBox(cropX, cropY, cropW, Number(e.target.value), cropAspect)}
+                  className="w-full accent-black cursor-pointer disabled:opacity-50"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={executeCrop}
+                className="flex-1 bg-black text-white hover:bg-neutral-800 text-[11px] py-1.5 font-bold uppercase cursor-pointer border border-black shadow transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>Apply & Crop / 确认并裁剪</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onCropComplete) {
+                    onCropComplete(imageToCrop);
+                  }
+                  setImageToCrop(null);
+                }}
+                className="bg-white text-black hover:bg-neutral-100 text-[11px] py-1.5 px-4 font-bold uppercase cursor-pointer border border-black transition-all"
+              >
+                {lang === 'en' ? 'Use Original / 使用原图' : '直接使用原图'}
+              </button>
+            </div>
           </div>
         </div>
       )}

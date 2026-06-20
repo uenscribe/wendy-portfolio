@@ -4757,19 +4757,17 @@ export default function App() {
       )}
 
       {/* Task 8: Guest floating scroll-to-top bubble */}
-      {!isAdminLoggedIn && (
-        <button
-          onClick={() => {
-            const container = document.getElementById('primary-content-viewport') || window;
-            container.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-55 w-12 h-12 rounded-full border border-black bg-white hover:bg-black hover:text-white text-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center font-mono leading-none group"
-          title={lang === 'en' ? 'Scroll to Top' : '返回顶部'}
-        >
-          <span className="text-sm font-bold group-hover:-translate-y-0.5 transition-transform">↑</span>
-          <span className="text-[7.5px] font-black tracking-wider uppercase mt-0.5">TOP</span>
-        </button>
-      )}
+      <button
+        onClick={() => {
+          const container = document.getElementById('primary-content-viewport') || window;
+          container.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-55 w-12 h-12 rounded-full border border-black bg-white hover:bg-black hover:text-white text-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center font-mono leading-none group"
+        title={lang === 'en' ? 'Scroll to Top' : '返回顶部'}
+      >
+        <span className="text-sm font-bold group-hover:-translate-y-0.5 transition-transform">↑</span>
+        <span className="text-[7.5px] font-black tracking-wider uppercase mt-0.5">TOP</span>
+      </button>
 
     </div>
   );

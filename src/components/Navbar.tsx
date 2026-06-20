@@ -40,7 +40,7 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
         id="right-fixed-navbar"
         className="hidden md:flex fixed right-0 top-0 bottom-0 w-28 bg-black text-white border-l-2 border-black z-50 flex-col items-center justify-between py-6 select-none"
       >
-        <div className="flex flex-col items-center justify-center border-b border-white/10 w-full pb-4 gap-2.5">
+        <div className="flex flex-col items-center justify-center border-b border-white/10 w-full pb-4 gap-2">
           <button
             onClick={() => setActiveTab('home')}
             className="w-8 h-8 border border-white flex items-center justify-center bg-neutral-900 hover:bg-neutral-800 transition-colors cursor-pointer text-white rounded-xs"
@@ -50,10 +50,10 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
           </button>
           
           {/* Top-aligned language switch module - Enlarged slightly */}
-          <div className="flex flex-row gap-1 justify-center items-center bg-zinc-900 border border-zinc-800 p-1 rounded text-[11px] font-mono select-none w-20">
+          <div className="flex flex-row gap-0.5 justify-center items-center bg-zinc-900 border border-zinc-800 p-0.5 rounded text-[10.5px] font-mono select-none w-22">
             <button
               onClick={() => setLang('en')}
-              className={`px-2 py-0.5 rounded-xs transition-colors cursor-pointer font-extrabold ${
+              className={`px-1.5 py-0.5 rounded-xs transition-colors cursor-pointer font-extrabold ${
                 lang === 'en' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white font-medium'
               }`}
             >
@@ -61,13 +61,14 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
             </button>
             <button
               onClick={() => setLang('zh')}
-              className={`px-2 py-0.5 rounded-xs transition-colors cursor-pointer font-extrabold ${
+              className={`px-1.5 py-0.5 rounded-xs transition-colors cursor-pointer font-extrabold ${
                 lang === 'zh' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white font-medium'
               }`}
             >
-              ZH
+              简中
             </button>
           </div>
+
         </div>
 
         {/* Horizontal text layout listings for right navigation labels as requested */}
@@ -105,25 +106,28 @@ export default function Navbar({ activeTab, setActiveTab, lang, setLang, customN
       </nav>
 
       {/* Mobile/Tablet Bottom Horizontal Navigation Bar with dynamic float top-bar language block */}
-      <div className="md:hidden fixed top-12 left-0 right-0 h-8 bg-zinc-950 font-mono text-[9px] z-40 flex items-center justify-between px-4 border-b border-black text-white select-none shadow-sm">
-        <span className="text-zinc-400 font-bold tracking-widest uppercase">W. LU ARCHIVE</span>
-        <div className="flex bg-zinc-900 border border-zinc-800 p-[1px] rounded text-[8px]">
-          <button
-            onClick={() => setLang('en')}
-            className={`px-2 py-0.5 rounded-xs transition-colors cursor-pointer font-black ${
-              lang === 'en' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            ENGLISH
-          </button>
-          <button
-            onClick={() => setLang('zh')}
-            className={`px-2 py-0.5 rounded-xs transition-colors cursor-pointer font-black ${
-              lang === 'zh' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            中文
-          </button>
+      <div className="md:hidden fixed top-12 left-0 right-0 h-9 bg-zinc-950 font-mono text-[9px] z-40 flex items-center justify-between px-3 border-b border-black text-white select-none shadow-sm gap-2">
+        <span className="text-zinc-400 font-bold tracking-widest uppercase text-[7.5px] truncate">W. LU ARCHIVE</span>
+        
+        <div className="flex items-center gap-2">
+          <div className="flex bg-zinc-900 border border-zinc-800 p-[1px] rounded text-[8px]">
+            <button
+              onClick={() => setLang('en')}
+              className={`px-2 py-0.5 rounded-xs transition-colors cursor-pointer font-black ${
+                lang === 'en' ? 'bg-white text-black' : 'text-zinc-400'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLang('zh')}
+              className={`px-2 py-0.5 rounded-xs transition-colors cursor-pointer font-black ${
+                lang === 'zh' ? 'bg-white text-black' : 'text-zinc-400'
+              }`}
+            >
+              简中
+            </button>
+          </div>
         </div>
       </div>
 

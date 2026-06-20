@@ -35,6 +35,124 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
   const [cropAspect, setCropAspect] = useState<'free' | '3:4' | '16:9' | '1:1'>('free');
   const [onCropComplete, setOnCropComplete] = useState<((cropped: string) => void) | null>(null);
 
+  // Drag states for interactive cropper dragging
+  const [dragMode, setDragMode] = useState<{
+    type: 'move' | 'resize' | 'draw';
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    initialW: number;
+    initialH: number;
+    edges?: { left: boolean; right: boolean; top: boolean; bottom: boolean };
+  } | null>(null);
+
+  const handleCropperPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+    const thresholdPercent = 6;
+    const isNearLeft = Math.abs(xPercent - cropX) < thresholdPercent;
+    const isNearRight = Math.abs(xPercent - (cropX + cropW)) < thresholdPercent;
+    const isNearTop = Math.abs(yPercent - cropY) < thresholdPercent;
+    const isNearBottom = Math.abs(yPercent - (cropY + cropH)) < thresholdPercent;
+
+    const isInside = xPercent >= cropX && xPercent <= cropX + cropW &&
+                     yPercent >= cropY && yPercent <= cropY + cropH;
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    if (isNearLeft || isNearRight || isNearTop || isNearBottom) {
+      setDragMode({
+        type: 'resize',
+        startX: xPercent,
+        startY: yPercent,
+        initialX: cropX,
+        initialY: cropY,
+        initialW: cropW,
+        initialH: cropH,
+        edges: { left: isNearLeft, right: isNearRight, top: isNearTop, bottom: isNearBottom }
+      });
+    } else if (isInside) {
+      setDragMode({
+        type: 'move',
+        startX: xPercent,
+        startY: yPercent,
+        initialX: cropX,
+        initialY: cropY,
+        initialW: cropW,
+        initialH: cropH
+      });
+    } else {
+      setDragMode({
+        type: 'draw',
+        startX: xPercent,
+        startY: yPercent,
+        initialX: xPercent,
+        initialY: yPercent,
+        initialW: 0,
+        initialH: 0
+      });
+    }
+  };
+
+  const handleCropperPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragMode) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xPercent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPercent = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+
+    const dx = xPercent - dragMode.startX;
+    const dy = yPercent - dragMode.startY;
+
+    if (dragMode.type === 'move') {
+      const nextX = Math.max(0, Math.min(100 - dragMode.initialW, dragMode.initialX + dx));
+      const nextY = Math.max(0, Math.min(100 - dragMode.initialH, dragMode.initialY + dy));
+      adjustCropBox(nextX, nextY, dragMode.initialW, dragMode.initialH, cropAspect);
+    } else if (dragMode.type === 'resize' && dragMode.edges) {
+      let nextX = dragMode.initialX;
+      let nextY = dragMode.initialY;
+      let nextW = dragMode.initialW;
+      let nextH = dragMode.initialH;
+
+      if (dragMode.edges.left) {
+        const proposedX = Math.max(0, dragMode.initialX + dx);
+        nextW = Math.max(8, dragMode.initialX + dragMode.initialW - proposedX);
+        nextX = dragMode.initialX + dragMode.initialW - nextW;
+      } else if (dragMode.edges.right) {
+        nextW = Math.max(8, Math.min(100 - dragMode.initialX, dragMode.initialW + dx));
+      }
+
+      if (dragMode.edges.top) {
+        const proposedY = Math.max(0, dragMode.initialY + dy);
+        nextH = Math.max(8, dragMode.initialY + dragMode.initialH - proposedY);
+        nextY = dragMode.initialY + dragMode.initialH - nextH;
+      } else if (dragMode.edges.bottom) {
+        nextH = Math.max(8, Math.min(100 - dragMode.initialY, dragMode.initialH + dy));
+      }
+
+      adjustCropBox(nextX, nextY, nextW, nextH, cropAspect);
+    } else if (dragMode.type === 'draw') {
+      const startPointX = dragMode.startX;
+      const startPointY = dragMode.startY;
+
+      let nextX = Math.min(startPointX, xPercent);
+      let nextY = Math.min(startPointY, yPercent);
+      let nextW = Math.max(5, Math.abs(xPercent - startPointX));
+      let nextH = Math.max(5, Math.abs(yPercent - startPointY));
+
+      adjustCropBox(nextX, nextY, nextW, nextH, cropAspect);
+    }
+  };
+
+  const handleCropperPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragMode) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    setDragMode(null);
+  };
+
   // Form states
   const [formType, setFormType] = useState<'book' | 'movie' | 'music'>('book');
   const [formTitle, setFormTitle] = useState('');
@@ -406,7 +524,7 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
               onClick={() => setDetailedItem(item)}
               className="group border border-black bg-white flex flex-col justify-between p-5 relative shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[5px_5px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden cursor-pointer select-none"
             >
-              {/* Cover image at 40% opacity */}
+              {/* Cover image at 20% opacity */}
               {item.coverImage && (
                 <div 
                   className="absolute inset-0 w-full h-full pointer-events-none z-0"
@@ -414,7 +532,7 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
                     backgroundImage: `url(${item.coverImage})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    opacity: 0.40
+                    opacity: 0.20
                   }}
                 />
               )}
@@ -834,13 +952,20 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
               : '拖动滑块确定裁剪的焦点选区，可以使用以下宽高比预设，使文献封面更契合网格。'}
           </p>
 
-          {/* Real-time high-fidelity bounding box overlay */}
-          <div className="relative border-4 border-black bg-stone-900 max-h-[350px] overflow-hidden flex items-center justify-center select-none aspect-video">
+          {/* Real-time high-fidelity bounding box overlay with drag and draw gestures support */}
+          <div 
+            onPointerDown={handleCropperPointerDown}
+            onPointerMove={handleCropperPointerMove}
+            onPointerUp={handleCropperPointerUp}
+            onPointerCancel={handleCropperPointerUp}
+            className="relative border-4 border-black bg-stone-900 max-h-[350px] overflow-hidden flex items-center justify-center select-none aspect-video cursor-crosshair touch-none"
+            title={lang === 'en' ? 'Drag inside to move. Drag bounds/draw to crop.' : '按住虚线框内可拖拽移动起终点，或按住边缘拖拽缩放选区，在任意空白处拖动可重新画框。'}
+          >
             <img 
               id="cropper-source-image-preview"
               src={imageToCrop} 
               alt="Source to Crop" 
-              className="max-h-[340px] max-w-full object-contain"
+              className="max-h-[340px] max-w-full object-contain pointer-events-none"
             />
             {/* Real-time high contrast visual boundary indicators */}
             <div 
@@ -855,6 +980,11 @@ export default function LibrarySection({ items, lang = 'en', isAdminLoggedIn = f
               <div className="absolute top-1 left-1.5 bg-[#fbbf24] text-black text-[7px] font-mono font-bold leading-none px-1 py-0.5 rounded-sm">
                 CROP FOCUS VIEWPORT
               </div>
+              {/* Drag resize visual corner cues */}
+              <div className="absolute top-0 left-0 w-2 h-2 border-l-2 border-t-2 border-[#fbbf24]" />
+              <div className="absolute top-0 right-0 w-2 h-2 border-r-2 border-t-2 border-[#fbbf24]" />
+              <div className="absolute bottom-0 left-0 w-2 h-2 border-l-2 border-b-2 border-[#fbbf24]" />
+              <div className="absolute bottom-0 right-0 w-2 h-2 border-r-2 border-b-2 border-[#fbbf24]" />
             </div>
           </div>
 
